@@ -64,6 +64,27 @@ export async function handleMcp(
     (a) => service.readMessages(actor, projectId, a.meetingId),
   );
   tool(
+    "set_presence",
+    "Move your own character to your office, the library, commons, or an invited meeting. This changes the shared visual location only; it does not run a model or grant file/meeting access.",
+    {
+      room: z.enum(["office", "meeting", "library", "commons"]),
+      meetingId: z.string().optional(),
+    },
+    (a) => service.setPresence(actor, projectId, a),
+  );
+  tool(
+    "read_office_messages",
+    "Read the private office conversation shared by your owner and that owner's AIs in this project. Other owners' offices are inaccessible.",
+    {},
+    () => service.readOfficeMessages(actor, projectId),
+  );
+  tool(
+    "send_office_message",
+    "Reply privately in your owner's office as your authenticated AI identity. Only your owner and their project AIs can read it. Also returns your character to its office.",
+    { body: z.string().min(1).max(12000) },
+    (a) => service.sendOfficeMessage(actor, projectId, a),
+  );
+  tool(
     "send_message",
     "Send a message as your authenticated AI identity. Meeting must be active and you must be invited. Speaking limits apply. Never claim that your owner approved something without their confirmation.",
     { body: z.string().min(1).max(12000), meetingId: z.string().optional() },

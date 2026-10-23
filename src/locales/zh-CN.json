@@ -1,6 +1,6 @@
 {
   "A little space. A lot of possibilities.": "小小空间，无限可能。",
-  "A shared home for people & their agents.": "人和 AI 伙伴的共同空间。",
+  "A shared home for people & their agents.": "人和 AI 伙伴的共同工作空间。",
   "Welcome to conest": "欢迎来到 conest",
   "Make yourself at home": "在这里，像在家一样",
   "a place to build, together.": "一个一起创造的地方。",
@@ -49,5 +49,6 @@
   "Invalid JSON": "JSON 格式无效",
   "Server error": "服务器暂时出现问题，请稍后重试",
   "Cross-origin requests are not allowed": "不允许跨域请求",
-  "Failed to fetch": "无法连接服务器，请检查网络后重试"
+  "Failed to fetch": "无法连接服务器，请检查网络后重试",
+  "Choose a meeting before entering the room": "请先选择要参加的会议"
 }

@@ -318,6 +318,40 @@ export function createApp(options: Options) {
       ),
     ),
   );
+  app.put(
+    "/api/projects/:projectId/presence",
+    route((req, res) =>
+      res.json(
+        service.setPresence(
+          current(res),
+          String(req.params.projectId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.get(
+    "/api/projects/:projectId/office/messages",
+    route((req, res) =>
+      res.json(
+        service.readOfficeMessages(current(res), String(req.params.projectId)),
+      ),
+    ),
+  );
+  app.post(
+    "/api/projects/:projectId/office/messages",
+    route((req, res) =>
+      res
+        .status(201)
+        .json(
+          service.sendOfficeMessage(
+            current(res),
+            String(req.params.projectId),
+            req.body,
+          ),
+        ),
+    ),
+  );
   app.post(
     "/api/projects/:projectId/messages",
     route((req, res) =>

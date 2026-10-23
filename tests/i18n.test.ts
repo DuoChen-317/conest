@@ -56,7 +56,12 @@ test("translations retain interpolation fields and cover all Chinese UI keys", (
   }
   for (const [key, value] of Object.entries(zh))
     assert.deepEqual(fields(key), fields(value), key);
-  for (const path of ["src/App.tsx", "src/api.ts", "src/i18n.ts"]) {
+  for (const path of [
+    "src/App.tsx",
+    "src/api.ts",
+    "src/i18n.ts",
+    "src/HouseWorld.tsx",
+  ]) {
     const source = ts.createSourceFile(
       path,
       readFileSync(new URL(`../${path}`, import.meta.url), "utf8"),

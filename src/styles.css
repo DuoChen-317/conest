@@ -2893,3 +2893,671 @@ html[lang="en"] .room-label {
     max-width: 225px;
   }
 }
+
+/* A shared office, built around a walkable game scene. */
+:root {
+  --office-blue: #3e6d9b;
+  --office-ink: #263c54;
+  --office-line: #d5e0eb;
+}
+body {
+  background: #f3f6f9;
+  color: var(--office-ink);
+}
+.button.primary {
+  background: #3e6d9b;
+  border-color: #3e6d9b;
+}
+.button.primary:hover {
+  background: #335d88;
+  border-color: #335d88;
+}
+.sidebar {
+  background: #23394f;
+}
+.sidebar nav button.active {
+  background: #44627c;
+}
+.demo-banner {
+  background: #eaf1f8;
+  border-color: #d3dfeb;
+  color: #526b85;
+}
+.topbar {
+  border-color: #dce5ed;
+}
+.language-switch {
+  background: #f7faff;
+  border-color: #d1dce8;
+  color: #395b7b;
+}
+.segmented,
+.segmented button.selected {
+  background: #edf3f9;
+}
+.auth-art {
+  background: #253e58;
+}
+.auth-title h1 > span {
+  color: #b7d2ed;
+}
+.auth-form {
+  background: #f7f9fc;
+}
+.scene-sprite {
+  display: inline-block;
+  position: relative;
+  flex-shrink: 0;
+  vertical-align: middle;
+  overflow: hidden;
+}
+.scene-sprite-inner {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  left: 0;
+  top: 0;
+  transform-origin: top left;
+}
+.robot-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.robot-frame img {
+  position: absolute;
+  max-width: none;
+  image-rendering: pixelated;
+  user-select: none;
+  pointer-events: none;
+}
+.human-frame {
+  position: absolute;
+  inset: 0;
+  background: url("/assets/kenney/urban.png") no-repeat;
+  background-size: 2700% 1800%;
+  image-rendering: pixelated;
+}
+.avatar .scene-sprite {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.avatar {
+  position: relative;
+}
+.house-and-office {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 24px;
+}
+.house-world {
+  min-width: 0;
+  background: #f6f9fc;
+  border: 1px solid var(--office-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.house-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 13px 15px;
+  background: #fff;
+  border-bottom: 1px solid var(--office-line);
+  flex-wrap: wrap;
+}
+.house-toolbar > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.house-toolbar h2 {
+  font-size: 14px;
+  font-weight: 650;
+}
+.house-toolbar > div:first-child > span {
+  color: #718397;
+  font-size: 10px;
+}
+.house-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.house-controls .icon-button {
+  width: 29px;
+  height: 30px;
+  border-radius: 5px;
+  color: #486b8d;
+}
+.house-controls .icon-button:hover {
+  background: #e6eff8;
+}
+.house-controls button[aria-pressed="true"] {
+  background: #dceafa;
+}
+.house-controls button:disabled {
+  opacity: 0.3;
+}
+.house-zoom {
+  font-size: 10px;
+  min-width: 34px;
+  text-align: center;
+  color: #64778a;
+}
+.house-viewport {
+  height: 480px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: #dbe5ee;
+  cursor: grab;
+}
+.house-viewport:active {
+  cursor: grabbing;
+}
+.house-floor {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1536px;
+  height: 1024px;
+  transform-origin: center;
+  user-select: none;
+}
+.house-background {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: block;
+  max-width: none;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+.house-room {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 8px 12px;
+  border: 2px solid #c3d4e4;
+  border-radius: 6px;
+  background: #f9fcffed;
+  color: #294b6b;
+  font-size: var(--house-label-size);
+  line-height: 1.3;
+  white-space: nowrap;
+  z-index: 100;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #294b6b14;
+}
+.house-room.mine {
+  border-color: #5e91c1;
+  background: #e7f2ffed;
+}
+.house-room:hover,
+.house-room:focus-visible {
+  background: #d8eaff;
+  outline: 3px solid #537fa9;
+  outline-offset: 4px;
+}
+.house-room small {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #426f9e;
+  color: #fff;
+  font-size: 0.8em;
+}
+.house-resident {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  outline-offset: 9px;
+}
+.house-resident:focus-visible {
+  outline: 3px solid #507fb1;
+  border-radius: 5px;
+}
+.house-resident .scene-sprite {
+  display: block;
+}
+.house-resident.disconnected .scene-sprite {
+  opacity: 0.6;
+  filter: saturate(0.35);
+}
+.house-name {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--house-label-size);
+  padding: 4px 7px;
+  border-radius: 4px;
+  color: #274363;
+  background: #f8fcfff2;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid #becfe0;
+}
+.house-name i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4a91a0;
+}
+.house-name i.offline {
+  background: #9ba8b8;
+}
+.house-resident.selected .house-name {
+  background: #335e89;
+  color: #fff;
+  border-color: #335e89;
+}
+.house-thought {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--house-label-size);
+  background: #fff;
+  border: 2px solid #a9bfd6;
+  border-radius: 8px;
+  padding: 7px 10px;
+  white-space: nowrap;
+  color: #365f86;
+}
+.house-object {
+  position: absolute;
+  padding: 0;
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background: none;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 2;
+  color: #2f6294;
+}
+.house-object svg {
+  opacity: 0;
+  background: #f2f8ffdf;
+  border-radius: 5px;
+  padding: 3px;
+  box-sizing: content-box;
+}
+.house-object:hover,
+.house-object:focus-visible {
+  border-color: #5189c5;
+  outline: 3px solid #d6e9ff;
+  outline-offset: 3px;
+}
+.house-object:hover svg,
+.house-object:focus-visible svg {
+  opacity: 1;
+}
+.desk-object {
+  width: 92px;
+  height: 100px;
+}
+.meeting-object {
+  left: 23%;
+  top: 65.5%;
+  width: 305px;
+  height: 100px;
+}
+.archive-object {
+  left: 62.5%;
+  top: 65%;
+  width: 45px;
+  height: 205px;
+}
+.house-inspector {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px 7px 7px;
+  border-radius: 8px;
+  background: #ffffffed;
+  border: 1px solid #c4d4e4;
+  max-width: calc(100% - 24px);
+  box-shadow: 0 4px 16px #2645630d;
+  cursor: default;
+}
+.house-inspector > div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.house-inspector b {
+  font-size: 12px;
+  display: block;
+}
+.house-inspector small {
+  display: block;
+  font-size: 10px;
+  color: #6b8197;
+  margin-top: 2px;
+}
+.house-inspector .text-button {
+  font-size: 11px;
+  color: #3c6f9e;
+  white-space: nowrap;
+}
+.house-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 11px 14px;
+  background: #fff;
+  border-top: 1px solid #dbe4ed;
+}
+.house-footer > span {
+  color: #6b7f93;
+  font-size: 10px;
+}
+.house-footer > div {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+}
+.house-footer .text-button {
+  font-size: 11px;
+  color: #477299;
+}
+.house-room-view {
+  margin-bottom: 22px;
+}
+.house-world.compact .house-viewport {
+  height: 300px;
+}
+.house-world.expanded .house-viewport {
+  height: 650px;
+}
+.house-world.expanded {
+  grid-column: 1/-1;
+}
+.house-and-office:has(.house-world.expanded) .office-conversation {
+  grid-column: 1/-1;
+  min-height: 400px;
+}
+.office-conversation {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-height: 620px;
+  border: 1px solid var(--office-line);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+.office-conversation-heading {
+  display: flex;
+  gap: 10px;
+  padding: 20px 17px 15px;
+  align-items: center;
+}
+.office-conversation-heading > svg {
+  color: #4e7da8;
+  flex-shrink: 0;
+}
+.office-conversation-heading h2 {
+  font-size: 15px;
+}
+.office-conversation-heading p {
+  margin-top: 5px;
+  font-size: 10px;
+  color: #7a8b9d;
+  line-height: 1.6;
+}
+.office-chat-tabs {
+  display: flex;
+  gap: 3px;
+  margin: 0 14px 10px;
+  background: #eff4fa;
+  border-radius: 6px;
+  padding: 4px;
+}
+.office-chat-tabs button {
+  flex: 1;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  padding: 8px 3px;
+  font-size: 11px;
+  color: #75899d;
+  cursor: pointer;
+}
+.office-chat-tabs button.selected {
+  background: #fff;
+  color: #365f88;
+  box-shadow: 0 1px 4px #365a7d10;
+}
+.office-chat-empty {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 210px;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 26px;
+  text-align: center;
+}
+.office-chat-empty h3 {
+  font-size: 14px;
+  margin: 10px 0;
+}
+.office-chat-empty p {
+  font-size: 11px;
+  line-height: 1.8;
+  color: #6b8096;
+}
+.office-conversation .chat-log {
+  flex: 1;
+  min-height: 170px;
+  max-height: 370px;
+  padding: 16px;
+}
+.office-conversation .chat-message {
+  gap: 8px;
+}
+.office-conversation .chat-message p {
+  font-size: 12px;
+}
+.office-conversation .message-form {
+  margin: 0;
+  padding: 12px;
+  background: #f9fbfd;
+  border-top: 1px solid #e3eaf1;
+}
+.office-conversation .message-form textarea {
+  min-height: 80px;
+  font-size: 12px;
+}
+.office-client-note {
+  font-size: 9px;
+  line-height: 1.6;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px 12px;
+  color: #71869c;
+  background: #f9fbfd;
+}
+.meeting-preview {
+  background: #edf3f9;
+  border-color: #d4dfeb;
+}
+.badge.active,
+.badge.working,
+.badge.confirmed {
+  background: #e2edf7;
+  color: #3f6e95;
+}
+.office-layout {
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+.content:has(.house-world) .page-heading h1 {
+  font-size: 25px;
+}
+.content:has(.house-world) .page-heading .eyebrow {
+  display: none;
+}
+@media (min-width: 1500px) {
+  .house-viewport {
+    height: 580px;
+  }
+}
+@media (max-width: 1100px) {
+  .house-and-office {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .house-viewport {
+    height: 500px;
+  }
+  .office-conversation {
+    min-height: 380px;
+    max-height: 520px;
+  }
+  .office-layout {
+    grid-template-columns: minmax(0, 1fr) 265px;
+  }
+}
+@media (max-width: 760px) {
+  .house-and-office {
+    gap: 16px;
+  }
+  .house-toolbar {
+    padding: 10px;
+    gap: 8px;
+  }
+  .house-toolbar h2 {
+    font-size: 13px;
+  }
+  .house-toolbar > div:first-child > span {
+    font-size: 9px;
+  }
+  .house-controls {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .house-controls .icon-button {
+    width: 32px;
+    height: 32px;
+  }
+  .house-viewport {
+    height: 310px;
+  }
+  .house-world.compact .house-viewport {
+    height: 220px;
+  }
+  .house-world.expanded .house-viewport {
+    height: 490px;
+  }
+  .house-footer {
+    padding: 10px;
+  }
+  .house-footer > span {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+  .house-inspector {
+    padding: 5px 8px 5px 3px;
+    bottom: 8px;
+    left: 8px;
+  }
+  .house-inspector .scene-sprite {
+    width: 30px !important;
+    height: 30px !important;
+  }
+  .office-conversation {
+    min-height: 400px;
+  }
+  .office-conversation-heading h2 {
+    font-size: 15px;
+  }
+  .office-chat-tabs button {
+    min-height: 36px;
+    font-size: 12px;
+  }
+  .office-client-note {
+    font-size: 10px;
+  }
+  .office-layout {
+    display: flex;
+    flex-direction: column;
+  }
+  .house-room-view {
+    margin-bottom: 18px;
+  }
+}
+.house-thought {
+  opacity: 0;
+  pointer-events: none;
+}
+.house-resident:hover .house-thought,
+.house-resident:focus-visible .house-thought {
+  opacity: 1;
+}
+.house-resident[data-room="meeting"]:not(.selected) .house-name {
+  opacity: 0;
+}
+.house-resident[data-room="meeting"]:hover .house-name,
+.house-resident[data-room="meeting"]:focus-visible .house-name {
+  opacity: 1;
+}
+.demo-actor-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.demo-actor-controls button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: #edf4fc;
+  border: 1px solid #d0dfee;
+  border-radius: 5px;
+  color: #416c98;
+  cursor: pointer;
+}
+.demo-actor-controls button:hover {
+  background: #d9e9fb;
+}
+.house-scene-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: #dbe5ee;
+  color: #587796;
+  font-size: 13px;
+  z-index: 200;
+}

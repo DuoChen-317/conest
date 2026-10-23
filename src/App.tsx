@@ -41,6 +41,8 @@ import {
   MagnifyingGlass,
 } from "@phosphor-icons/react";
 import { api, createDemoData, decodeText, time, type Item } from "./api";
+import HouseWorld, { SceneSprite } from "./HouseWorld";
+import type { Room } from "./house";
 import {
   tr,
   useLocale,
@@ -108,6 +110,8 @@ const activityLabels: Item = {
   "task.created": "创建了任务",
   "task.updated": "更新了进展",
   "file.updated": "提交了文件",
+  "presence.changed": "更新了所在房间",
+  "office.message": "在办公室发送了消息",
 };
 function agentOnline(agent: Item) {
   return (
@@ -134,10 +138,14 @@ function Avatar({
     <span
       aria-hidden="true"
       className={`avatar ${small ? "small" : ""}`}
-      style={{
-        backgroundPosition: `${(i % 3) * 50}% ${Math.floor(i / 3) * 100}%`,
-      }}
-    />
+      style={{ background: "none" }}
+    >
+      <SceneSprite
+        robot={i % 2 === 1}
+        skin={Math.floor(i / 2)}
+        size={small ? 34 : 48}
+      />
+    </span>
   );
 }
 function Empty({
@@ -284,8 +292,8 @@ function Auth({
           </p>
         </div>
         <img
-          src="/assets/office.png"
-          alt={tr("俯视像素办公楼，包含工作室、会议室、资料室和公共客厅")}
+          src="/assets/shared-house.png"
+          alt={tr("俯视像素办公楼，包含工作室、会议室、资料室和接待区")}
         />
         <span className="auth-caption">
           {tr("A shared home for people & their agents.")}
@@ -399,6 +407,8 @@ export default function App() {
     [modal, setModal] = useState<string | null>(null),
     [meetingId, setMeetingId] = useState<string | null>(null),
     [messages, setMessages] = useState<Item[]>([]);
+  const [chatScope, setChatScope] = useState<"office" | "lounge">("office");
+  const [demoPresence, setDemoPresence] = useState<Item[]>([]);
   const [toast, setToast] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -513,7 +523,7 @@ export default function App() {
     let stopped = false;
     const run = () =>
       api(
-        `/projects/${projectId}/messages${meetingId ? `?meetingId=${meetingId}` : ""}`,
+        `/projects/${projectId}/${meetingId ? `messages?meetingId=${meetingId}` : chatScope === "office" ? "office/messages" : "messages"}`,
       )
         .then((r) => {
           if (!stopped) setMessages(r);
@@ -527,7 +537,7 @@ export default function App() {
       stopped = true;
       clearInterval(timer);
     };
-  }, [projectId, meetingId, demo, locale]);
+  }, [projectId, meetingId, demo, locale, chatScope]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 4500);
@@ -560,6 +570,100 @@ export default function App() {
   const activeMeeting = data?.meetings.find((m: Item) => m.status !== "ended");
   const selectedMeeting = data?.meetings.find((m: Item) => m.id === meetingId);
   const isOwner = data?.project.owner_id === user?.id;
+  const locationRoom: Room =
+    tab === "files"
+      ? "library"
+      : tab === "meetings" && meetingId && selectedMeeting?.status !== "ended"
+        ? "meeting"
+        : tab === "office" && chatScope === "lounge"
+          ? "commons"
+          : "office";
+  useEffect(() => {
+    const actorId = demo ? "demo-human" : user?.id;
+    if (!actorId || (!demo && !projectId)) return;
+    if (demo) {
+      const timestamp = new Date().toISOString();
+      const records: Item[] = [
+        {
+          actor_id: actorId,
+          actor_type: "human",
+          room: locationRoom,
+          meeting_id: locationRoom === "meeting" ? meetingId : null,
+          updated_at: timestamp,
+        },
+      ];
+      if (locationRoom === "meeting")
+        for (const agent of data?.agents ?? [])
+          records.push({
+            actor_id: agent.id,
+            actor_type: "agent",
+            room: "meeting",
+            meeting_id: meetingId,
+            updated_at: timestamp,
+          });
+      if (locationRoom === "office")
+        for (const agent of data?.agents?.filter(
+          (a: Item) => a.owner_id === actorId,
+        ) ?? [])
+          records.push({
+            actor_id: agent.id,
+            actor_type: "agent",
+            room: "office",
+            meeting_id: null,
+            updated_at: timestamp,
+          });
+      setDemoPresence((previous) => [
+        ...previous.filter(
+          (p) => !records.some((r) => r.actor_id === p.actor_id),
+        ),
+        ...records,
+      ]);
+      return;
+    }
+    let stopped = false;
+    const update = () => {
+      if (document.visibilityState === "hidden") return;
+      void api(`/projects/${projectId}/presence`, "PUT", {
+        room: locationRoom,
+        ...(locationRoom === "meeting" ? { meetingId } : {}),
+      })
+        .then((record) => {
+          if (!stopped)
+            setData((previous) =>
+              previous?.project.id === projectId
+                ? {
+                    ...previous,
+                    presence: [
+                      ...(previous.presence ?? []).filter(
+                        (p: Item) =>
+                          !(p.actor_id === actorId && p.actor_type === "human"),
+                      ),
+                      record,
+                    ],
+                  }
+                : previous,
+            );
+        })
+        .catch(() => {});
+    };
+    update();
+    const timer = setInterval(update, 20000);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, [
+    locationRoom,
+    projectId,
+    meetingId,
+    selectedMeeting?.status,
+    demo,
+    user?.id,
+    data?.project.id,
+  ]);
+
   async function openFile(f: Item, version?: number) {
     if (demo) {
       setFile({
@@ -796,7 +900,7 @@ export default function App() {
         {!data && !projectId && !demo ? (
           <main className="onboard">
             <img
-              src="/assets/office.png"
+              src="/assets/shared-house.png"
               alt={tr("等待伙伴加入的共享办公空间")}
             />
             <div>
@@ -939,134 +1043,133 @@ export default function App() {
                 </span>
               </div>
             )}
+            {["office", "meetings", "files"].includes(tab) && (
+              <div
+                className={
+                  tab === "office" ? "house-and-office" : "house-room-view"
+                }
+              >
+                <HouseWorld
+                  data={{
+                    ...data,
+                    presence: demo ? demoPresence : data.presence,
+                  }}
+                  ownId={demo ? "demo-human" : user!.id}
+                  demo={demo}
+                  compact={tab !== "office"}
+                  onAgent={(agent) => {
+                    setSelectedMember(agent);
+                    setModal("resident");
+                  }}
+                  onDemoMove={
+                    demo
+                      ? (actorId, room) =>
+                          setDemoPresence((previous) => [
+                            ...previous.filter((p) => p.actor_id !== actorId),
+                            {
+                              actor_id: actorId,
+                              actor_type: "agent",
+                              room,
+                              meeting_id:
+                                room === "meeting" ? activeMeeting?.id : null,
+                              updated_at: new Date().toISOString(),
+                            },
+                          ])
+                      : undefined
+                  }
+                  onRoom={(room) => {
+                    if (room === "meeting") {
+                      if (activeMeeting) enterMeeting(activeMeeting.id);
+                      else setModal("meeting");
+                    } else if (room === "library") {
+                      setMeetingId(null);
+                      setTab("files");
+                    } else {
+                      setMeetingId(null);
+                      setChatScope(room === "commons" ? "lounge" : "office");
+                      setTab("office");
+                    }
+                  }}
+                />
+                {tab === "office" && (
+                  <section className="office-conversation">
+                    <div className="office-conversation-heading">
+                      <LockSimple size={19} />
+                      <div>
+                        <h2>
+                          {tr(chatScope === "office" ? "我的办公室" : "接待区")}
+                        </h2>
+                        <p>
+                          {tr(
+                            chatScope === "office"
+                              ? "仅你和自己的 AI 可见"
+                              : "项目成员和接入的 AI 均可见",
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className="office-chat-tabs"
+                      role="group"
+                      aria-label={tr("对话范围")}
+                    >
+                      <button
+                        className={chatScope === "office" ? "selected" : ""}
+                        onClick={() => setChatScope("office")}
+                      >
+                        {tr("办公室对话")}
+                      </button>
+                      <button
+                        className={chatScope === "lounge" ? "selected" : ""}
+                        onClick={() => setChatScope("lounge")}
+                      >
+                        {tr("公共留言板")}
+                      </button>
+                    </div>
+                    {messages.length ? (
+                      <Chat messages={messages} agents={data.agents} />
+                    ) : (
+                      <div className="office-chat-empty">
+                        <SceneSprite robot size={60} />
+                        <h3>{tr("从自己的工位开始")}</h3>
+                        <p>
+                          {tr(
+                            chatScope === "office"
+                              ? "和自己的 AI 沟通工作，需要一起讨论时再前往会议室。"
+                              : "在接待区向项目伙伴分享想法。",
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    <MessageForm
+                      disabled={busy}
+                      placeholder={tr(
+                        chatScope === "office"
+                          ? "和自己的 AI 说点什么…"
+                          : "留下一条消息，让伙伴们知道你的想法…",
+                      )}
+                      send={(body) =>
+                        action(async () => {
+                          const path =
+                            chatScope === "office"
+                              ? `${endpoint}/office/messages`
+                              : `${endpoint}/messages`;
+                          await api(path, "POST", { body });
+                          setMessages(await api(path));
+                        })
+                      }
+                    />
+                    <p className="office-client-note">
+                      <PlugsConnected size={13} />
+                      {tr("AI 客户端在线时才能读取并回复消息。")}
+                    </p>
+                  </section>
+                )}
+              </div>
+            )}
             {tab === "office" && (
               <div className="office-layout">
                 <div className="office-main">
-                  <section className="map-card">
-                    <header className="section-header">
-                      <div>
-                        <span className="tiny-square" />
-                        <h2>{tr("我们的共享空间")}</h2>
-                      </div>
-                      <span className="muted">
-                        {tr("{count} 位伙伴 · {agents} 个 AI", {
-                          count: data.members.length,
-                          agents: data.agents.length,
-                        })}
-                      </span>
-                    </header>
-                    <div className="office-map">
-                      <img
-                        src="/assets/office.png"
-                        alt={tr("俯视像素办公室地图")}
-                      />
-                      <button
-                        className="room-label room-studio"
-                        onClick={() => setTab("team")}
-                      >
-                        <HouseLine size={14} />
-                        {tr("个人工作室")}
-                        <ArrowUpRight size={12} />
-                      </button>
-                      <button
-                        className={`room-label room-meeting ${activeMeeting ? "occupied" : ""}`}
-                        onClick={() =>
-                          activeMeeting
-                            ? enterMeeting(activeMeeting.id)
-                            : setModal("meeting")
-                        }
-                      >
-                        <ChatCircleDots size={14} />
-                        {tr("会议室")}
-                        {activeMeeting && <span className="room-live" />}
-                      </button>
-                      <button
-                        className="room-label room-library"
-                        onClick={() => setTab("files")}
-                      >
-                        <FolderOpen size={14} />
-                        {tr("项目资料室")}
-                        <ArrowUpRight size={12} />
-                      </button>
-                      <button
-                        className="room-label room-workshop"
-                        onClick={() => setTab("tasks")}
-                      >
-                        <Kanban size={14} />
-                        {tr("共同工作间")}
-                        <ArrowUpRight size={12} />
-                      </button>
-                      {data.members.slice(0, 3).map((m: Item, i: number) => (
-                        <button
-                          key={m.id}
-                          className="map-resident map-human"
-                          style={{ left: `${[13, 40, 72][i]}%`, top: "80%" }}
-                          onClick={() => setTab("team")}
-                          aria-label={tr("查看伙伴 {value0}", {
-                            value0: m.name,
-                          })}
-                        >
-                          <Avatar index={[0, 2, 4][i]} />
-                          <span>{m.name}</span>
-                        </button>
-                      ))}
-                      {data.agents.slice(0, 6).map((a: Item, i: number) => {
-                        const positions = [
-                          [18, 23],
-                          [49, 23],
-                          [82, 23],
-                          [25, 73],
-                          [53, 73],
-                          [76, 73],
-                        ];
-                        return (
-                          <button
-                            key={a.id}
-                            className="map-resident"
-                            style={{
-                              left: `${positions[i][0]}%`,
-                              top: `${positions[i][1]}%`,
-                            }}
-                            onClick={() => {
-                              setSelectedMember(a);
-                              setModal("resident");
-                            }}
-                            aria-label={tr("查看 {value0}", { value0: a.name })}
-                          >
-                            <Avatar index={[1, 3, 5, 1, 3, 5][i]} />
-                            <span>
-                              {a.name}
-                              <i
-                                className={
-                                  demo || agentOnline(a) ? "online" : ""
-                                }
-                              />
-                            </span>
-                          </button>
-                        );
-                      })}
-                      <span className="map-footer">
-                        {tr("点房间或伙伴，看看正在发生什么")}
-                      </span>
-                    </div>
-                    <footer className="map-legend">
-                      <span>
-                        <i className="legend-dot green" />
-                        {tr("工作中")}
-                      </span>
-                      <span>
-                        <i className="legend-dot blue" />
-                        {tr("讨论中")}
-                      </span>
-                      <span>
-                        <i className="legend-dot orange" />
-                        {tr("等待你")}
-                      </span>
-                      <span className="map-caption">
-                        {tr("a place to build, together.")}
-                      </span>
-                    </footer>
-                  </section>
                   <section className="team-strip">
                     <div className="section-header">
                       <h2>{tr("今天的伙伴")}</h2>
@@ -1745,32 +1848,6 @@ export default function App() {
                 </section>
               </div>
             )}
-            {tab === "office" && (
-              <section className="lounge">
-                <div className="section-header">
-                  <h2>
-                    <ChatCircleDots size={18} />
-                    {tr("公共留言板")}
-                  </h2>
-                  <span className="muted">
-                    {tr("人和接入的 AI 都可以发言")}
-                  </span>
-                </div>
-                {messages.length > 0 && (
-                  <Chat messages={messages.slice(-5)} agents={data.agents} />
-                )}
-                <MessageForm
-                  disabled={busy}
-                  placeholder={tr("留下一条消息，让伙伴们知道你的想法…")}
-                  send={(body) =>
-                    action(async () => {
-                      await api(`${endpoint}/messages`, "POST", { body });
-                      setMessages(await api(`${endpoint}/messages`));
-                    })
-                  }
-                />
-              </section>
-            )}
             <footer className="page-footer">
               <span>
                 conest <span className="footer-separator">/</span>{" "}
@@ -2099,7 +2176,12 @@ export default function App() {
                   <>
                     <a
                       className="button small"
-                      href={`/api${endpoint}/files/${file.id}?version=${file.version}&download=1`}
+                      href={
+                        demo
+                          ? `data:text/plain;charset=utf-8,${encodeURIComponent(fileText)}`
+                          : `/api${endpoint}/files/${file.id}?version=${file.version}&download=1`
+                      }
+                      download={demo ? filePath.split("/").pop() : undefined}
                     >
                       <DownloadSimple size={16} />
                       {tr("下载 v")}

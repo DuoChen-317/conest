@@ -147,6 +147,10 @@ export class Service {
     this.project(actor, projectId);
     const s = this.store;
     return {
+      presence: s.all(
+        "SELECT p.* FROM presence p WHERE p.project_id=? AND (p.actor_type='human' OR EXISTS(SELECT 1 FROM agents a WHERE a.id=p.actor_id AND a.project_id=p.project_id AND a.revoked=0))",
+        projectId,
+      ),
       project: s.one("SELECT * FROM projects WHERE id=?", projectId),
       members: s.all(
         "SELECT u.id,u.name,u.username,m.role FROM members m JOIN users u ON m.user_id=u.id WHERE m.project_id=?",
@@ -175,6 +179,86 @@ export class Service {
       ),
       activity: this.readEvents(actor, projectId, 0, 16, true),
     };
+  }
+  setPresence(actor: Actor, projectId: string, input: unknown) {
+    this.project(actor, projectId);
+    const data = z
+      .object({
+        room: z.enum(["office", "meeting", "library", "commons"]),
+        meetingId: z.string().optional(),
+      })
+      .parse(input);
+    if (data.room === "meeting") {
+      requireThat(
+        data.meetingId,
+        400,
+        "Choose a meeting before entering the room",
+      );
+      const meeting = this.meeting(actor, projectId, data.meetingId);
+      requireThat(meeting.status !== "ended", 409, "Meeting has ended");
+    }
+    const meetingId = data.room === "meeting" ? data.meetingId! : null;
+    const previous = this.store.one(
+      "SELECT * FROM presence WHERE project_id=? AND actor_id=? AND actor_type=?",
+      projectId,
+      actor.id,
+      actor.type,
+    );
+    const record = {
+      project_id: projectId,
+      actor_id: actor.id,
+      actor_type: actor.type,
+      room: data.room,
+      meeting_id: meetingId,
+      updated_at: now(),
+    };
+    this.store.run(
+      "INSERT INTO presence VALUES(?,?,?,?,?,?) ON CONFLICT(project_id,actor_id,actor_type) DO UPDATE SET room=excluded.room,meeting_id=excluded.meeting_id,updated_at=excluded.updated_at",
+      ...Object.values(record),
+    );
+    if (
+      previous?.room !== record.room ||
+      previous?.meeting_id !== record.meeting_id
+    )
+      this.emit(projectId, "presence.changed", {
+        actorId: actor.id,
+        actorType: actor.type,
+        room: record.room,
+        meetingId,
+        actorName: actor.name,
+      });
+    return record;
+  }
+  readOfficeMessages(actor: Actor, projectId: string) {
+    this.project(actor, projectId);
+    if (actor.type === "agent")
+      this.setPresence(actor, projectId, { room: "office" });
+    return this.store.all(
+      "SELECT * FROM (SELECT * FROM office_messages WHERE project_id=? AND owner_id=? ORDER BY rowid DESC LIMIT 200) ORDER BY created_at",
+      projectId,
+      actor.userId,
+    );
+  }
+  sendOfficeMessage(actor: Actor, projectId: string, input: unknown) {
+    this.project(actor, projectId);
+    const { body } = z.object({ body: text }).parse(input);
+    const message = {
+      id: id(),
+      project_id: projectId,
+      owner_id: actor.userId,
+      actor_id: actor.id,
+      actor_type: actor.type,
+      actor_name: actor.name,
+      body,
+      created_at: now(),
+    };
+    this.store.run(
+      "INSERT INTO office_messages VALUES(?,?,?,?,?,?,?,?)",
+      ...Object.values(message),
+    );
+    this.setPresence(actor, projectId, { room: "office" });
+    this.emit(projectId, "office.message", message, actor.userId);
+    return message;
   }
   createAgent(actor: Actor, projectId: string, input: unknown) {
     this.project(actor, projectId);
@@ -259,6 +343,24 @@ export class Service {
           meetingId,
           agentId,
         );
+      this.setPresence(actor, projectId, { room: "meeting", meetingId });
+      for (const agentId of new Set(data.agentIds)) {
+        const agent = this.store.one(
+          "SELECT * FROM agents WHERE id=?",
+          agentId,
+        )!;
+        this.setPresence(
+          {
+            id: agent.id,
+            userId: agent.owner_id,
+            name: agent.name,
+            type: "agent",
+            projectId,
+          },
+          projectId,
+          { room: "meeting", meetingId },
+        );
+      }
       this.emit(projectId, "meeting.started", {
         meetingId,
         title: data.title,
@@ -290,6 +392,14 @@ export class Service {
       data.status,
       meetingId,
     );
+    if (data.status === "ended") {
+      this.store.run(
+        "UPDATE presence SET room='office',meeting_id=NULL,updated_at=? WHERE project_id=? AND meeting_id=? AND room='meeting'",
+        now(),
+        projectId,
+        meetingId,
+      );
+    }
     this.emit(projectId, "meeting.status", {
       meetingId,
       status: data.status,
@@ -300,6 +410,12 @@ export class Service {
   readMessages(actor: Actor, projectId: string, meetingId?: string) {
     this.project(actor, projectId);
     if (meetingId) this.meeting(actor, projectId, meetingId);
+    if (
+      meetingId &&
+      actor.type === "agent" &&
+      this.meeting(actor, projectId, meetingId).status !== "ended"
+    )
+      this.setPresence(actor, projectId, { room: "meeting", meetingId });
     return this.store.all(
       "SELECT * FROM (SELECT * FROM messages WHERE project_id=? AND meeting_id IS ? ORDER BY rowid DESC LIMIT 200) ORDER BY created_at",
       projectId,
@@ -339,6 +455,13 @@ export class Service {
     this.store.run(
       "INSERT INTO messages VALUES(?,?,?,?,?,?,?,?)",
       ...Object.values(message),
+    );
+    this.setPresence(
+      actor,
+      projectId,
+      data.meetingId
+        ? { room: "meeting", meetingId: data.meetingId }
+        : { room: "commons" },
     );
     this.emit(projectId, "message.created", message);
     return message;
@@ -625,6 +748,7 @@ export class Service {
           ? (existing?.owner_id ?? actor.userId)
           : null,
       );
+      this.setPresence(actor, projectId, { room: "library" });
       return this.store.one("SELECT * FROM files WHERE id=?", fileId);
     });
   }
@@ -643,6 +767,7 @@ export class Service {
       version ?? file.version,
     );
     requireThat(entry, 404, "File version not found");
+    this.setPresence(actor, projectId, { room: "library" });
     return {
       file,
       entry,
@@ -662,7 +787,7 @@ export class Service {
     this.project(actor, projectId);
     const meetingFilter =
       actor.type === "agent"
-        ? `AND (kind NOT IN ('message.created','meeting.started','meeting.status') OR COALESCE(json_extract(payload,'$.meetingId'),json_extract(payload,'$.meeting_id')) IS NULL OR EXISTS(SELECT 1 FROM participants pp WHERE pp.meeting_id=COALESCE(json_extract(payload,'$.meetingId'),json_extract(payload,'$.meeting_id')) AND pp.agent_id=?))`
+        ? `AND (kind NOT IN ('message.created','meeting.started','meeting.status','presence.changed') OR COALESCE(json_extract(payload,'$.meetingId'),json_extract(payload,'$.meeting_id')) IS NULL OR EXISTS(SELECT 1 FROM participants pp WHERE pp.meeting_id=COALESCE(json_extract(payload,'$.meetingId'),json_extract(payload,'$.meeting_id')) AND pp.agent_id=?))`
         : "";
     const params =
       actor.type === "agent"

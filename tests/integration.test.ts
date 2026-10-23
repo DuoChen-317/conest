@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -452,6 +452,156 @@ test("CoNest: two independent clients collaborate with enforced identity, permis
       );
     },
   );
+  await t.test(
+    "private offices isolate conversations and room actions retain identity and permissions",
+    async () => {
+      const marker = "Private office context for Alice only";
+      await request(
+        `${endpoint}/office/messages`,
+        "POST",
+        { body: marker, ownerId: bob.data.id },
+        alice.cookie,
+        201,
+      );
+      assert.equal(
+        (
+          await request(
+            `${endpoint}/office/messages`,
+            "GET",
+            undefined,
+            a.token,
+          )
+        ).data[0].body,
+        marker,
+      );
+      assert.deepEqual(
+        (
+          await request(
+            `${endpoint}/office/messages`,
+            "GET",
+            undefined,
+            bob.cookie,
+          )
+        ).data,
+        [],
+      );
+      assert.deepEqual(
+        (
+          await request(
+            `${endpoint}/office/messages`,
+            "GET",
+            undefined,
+            b.token,
+          )
+        ).data,
+        [],
+      );
+      await request(
+        `${endpoint}/office/messages`,
+        "GET",
+        undefined,
+        outsider.cookie,
+        404,
+      );
+      assert.ok(
+        !(
+          await request(`${endpoint}/messages`, "GET", undefined, bob.cookie)
+        ).data.some((m: any) => m.body === marker),
+      );
+      assert.ok(
+        !JSON.stringify(
+          (await request(endpoint, "GET", undefined, b.token)).data,
+        ).includes(marker),
+      );
+      assert.ok(
+        !JSON.stringify(
+          (
+            await request(
+              `${endpoint}/events?after=0`,
+              "GET",
+              undefined,
+              b.token,
+            )
+          ).data,
+        ).includes(marker),
+      );
+      await request(
+        `${endpoint}/office/messages`,
+        "POST",
+        { body: "Reply from Alice's own AI" },
+        a.token,
+        201,
+      );
+      assert.equal(
+        (
+          await request(
+            `${endpoint}/office/messages`,
+            "GET",
+            undefined,
+            alice.cookie,
+          )
+        ).data.length,
+        2,
+      );
+      const placed = (
+        await request(
+          `${endpoint}/presence`,
+          "PUT",
+          { room: "library", actorId: b.id },
+          a.token,
+        )
+      ).data;
+      assert.equal(placed.actor_id, a.id);
+      assert.equal(placed.room, "library");
+      await request(
+        `${endpoint}/presence`,
+        "PUT",
+        { room: "meeting" },
+        alice.cookie,
+        400,
+      );
+      await request(
+        `${endpoint}/presence`,
+        "PUT",
+        { room: "unknown" },
+        alice.cookie,
+        400,
+      );
+      await request(
+        `${endpoint}/presence`,
+        "PUT",
+        { room: "meeting", meetingId: meeting.id },
+        c.token,
+        403,
+      );
+      await request(
+        `${endpoint}/presence`,
+        "PUT",
+        { room: "meeting", meetingId: meeting.id },
+        a.token,
+      );
+      assert.equal(
+        (
+          await request(endpoint, "GET", undefined, alice.cookie)
+        ).data.presence.find((p: any) => p.actor_id === a.id).room,
+        "meeting",
+      );
+      await request(`${endpoint}/files/${file.id}`, "GET", undefined, a.token);
+      assert.equal(
+        (
+          await request(endpoint, "GET", undefined, alice.cookie)
+        ).data.presence.find((p: any) => p.actor_id === a.id).room,
+        "library",
+      );
+      await request(`${endpoint}/office/messages`, "GET", undefined, a.token);
+      assert.equal(
+        (
+          await request(endpoint, "GET", undefined, alice.cookie)
+        ).data.presence.find((p: any) => p.actor_id === a.id).room,
+        "office",
+      );
+    },
+  );
   await t.test("durable event cursor and long-poll delivery", async () => {
     const previous = (
       await request(`${endpoint}/events?after=0`, "GET", undefined, b.token)
@@ -491,6 +641,28 @@ test("CoNest: two independent clients collaborate with enforced identity, permis
         const list = await client.listTools();
         assert.ok(list.tools.some((t) => t.name === "send_message"));
         assert.ok(list.tools.some((t) => t.name === "read_file"));
+        assert.ok(list.tools.some((t) => t.name === "set_presence"));
+        const privateReply: any = await client.callTool({
+          name: "send_office_message",
+          arguments: { body: "A private MCP office reply" },
+        });
+        assert.equal(
+          JSON.parse(privateReply.content[0].text).owner_id,
+          bob.data.id,
+        );
+        const office: any = await client.callTool({
+          name: "read_office_messages",
+          arguments: {},
+        });
+        assert.equal(
+          JSON.parse(office.content[0].text).at(-1).body,
+          "A private MCP office reply",
+        );
+        const location: any = await client.callTool({
+          name: "set_presence",
+          arguments: { room: "library" },
+        });
+        assert.equal(JSON.parse(location.content[0].text).actor_id, b.id);
         const result: any = await client.callTool({
           name: "get_project",
           arguments: {},
@@ -567,6 +739,92 @@ test("CoNest: two independent clients collaborate with enforced identity, permis
     },
   );
   await t.test(
+    "the listener keeps generic adapter replies to private office events private",
+    async () => {
+      const cursorFile = join(dir, "office-listener-cursor.json");
+      const latest = (
+        await request(`${endpoint}/events?after=0`, "GET", undefined, b.token)
+      ).data.at(-1).id;
+      writeFileSync(cursorFile, JSON.stringify({ cursor: latest }));
+      const handler = join(dir, "office-handler.mjs");
+      writeFileSync(
+        handler,
+        `let input='';process.stdin.on('data',c=>input+=c);process.stdin.on('end',()=>{const {event}=JSON.parse(input);console.log(JSON.stringify(event.kind==='office.message'?[{type:'message',body:'Private adapter reply'}]:[]));});`,
+      );
+      const child = spawn(
+        process.execPath,
+        ["--import", "tsx", "examples/agent.ts"],
+        {
+          env: {
+            ...process.env,
+            CONEST_URL: base,
+            CONEST_TOKEN: b.token,
+            CONEST_CURSOR_FILE: cursorFile,
+            CONEST_HANDLER: JSON.stringify([process.execPath, handler]),
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      let output = "";
+      child.stdout.on("data", (c) => (output += c));
+      child.stderr.resume();
+      try {
+        await request(
+          `${endpoint}/office/messages`,
+          "POST",
+          { body: "Office adapter secret" },
+          bob.cookie,
+          201,
+        );
+        let received = false;
+        for (let i = 0; i < 100; i++) {
+          const messages = (
+            await request(
+              `${endpoint}/office/messages`,
+              "GET",
+              undefined,
+              bob.cookie,
+            )
+          ).data;
+          if (messages.some((m: any) => m.body === "Private adapter reply")) {
+            received = true;
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 40));
+        }
+        assert.ok(
+          received,
+          "The private office event should reach the owner's adapter",
+        );
+        assert.ok(
+          !(
+            await request(
+              `${endpoint}/messages`,
+              "GET",
+              undefined,
+              alice.cookie,
+            )
+          ).data.some((m: any) => m.body === "Private adapter reply"),
+        );
+        assert.ok(
+          !(
+            await request(
+              `${endpoint}/office/messages`,
+              "GET",
+              undefined,
+              alice.cookie,
+            )
+          ).data.some((m: any) => m.body === "Private adapter reply"),
+        );
+        assert.ok(!output.includes("Office adapter secret"));
+      } finally {
+        child.kill("SIGTERM");
+        if (child.exitCode === null)
+          await new Promise<void>((r) => child.once("close", () => r()));
+      }
+    },
+  );
+  await t.test(
     "meetings end, revoked credentials stop working, sessions log out and data persists",
     async () => {
       await request(
@@ -574,6 +832,14 @@ test("CoNest: two independent clients collaborate with enforced identity, permis
         "PATCH",
         { status: "ended" },
         alice.cookie,
+      );
+      const locations = (
+        await request(endpoint, "GET", undefined, alice.cookie)
+      ).data.presence;
+      assert.ok(
+        !locations.some(
+          (p: any) => p.room === "meeting" && p.meeting_id === meeting.id,
+        ),
       );
       await request(
         `${endpoint}/messages`,

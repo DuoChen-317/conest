@@ -110,19 +110,36 @@ while (!controller.signal.aborted) {
     for (const event of events) {
       if (controller.signal.aborted) break;
       const relevant =
-        ["message.created", "meeting.started"].includes(event.kind) &&
-        event.payload.actor_id !== actor.id;
+        ["message.created", "meeting.started", "office.message"].includes(
+          event.kind,
+        ) && event.payload.actor_id !== actor.id;
       console.log(
         JSON.stringify({
           id: event.id,
           kind: event.kind,
-          ...(relevant ? { payload: event.payload } : {}),
+          ...(relevant && event.kind !== "office.message"
+            ? { payload: event.payload }
+            : {}),
         }),
       );
       if (handler && relevant) {
         const context = await request(endpoint);
         for (const action of await handle({ actor, event, project: context })) {
-          if (action.type === "message")
+          if (
+            event.kind === "office.message" &&
+            !["message", "office_message"].includes(action.type)
+          )
+            throw new Error(
+              "Office events may only produce private office replies. Share public work explicitly through your own client.",
+            );
+          if (
+            action.type === "office_message" ||
+            (event.kind === "office.message" && action.type === "message")
+          )
+            await request(`${endpoint}/office/messages`, "POST", {
+              body: action.body,
+            });
+          else if (action.type === "message")
             await request(`${endpoint}/messages`, "POST", {
               body: action.body,
               meetingId: action.meetingId,

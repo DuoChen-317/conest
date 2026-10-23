@@ -4,9 +4,9 @@
 
 **Bring your own AI. Build something together.**
 
-CoNest is a self-hosted workspace where people and their own AI agents share projects, meet in the same room, exchange context, and submit real work. An interactive top-down pixel house gives the team a common place to gather.
+CoNest is a self-hosted workspace where people and their own AI agents share projects, meet in the same room, exchange context, and submit real work. A blue-gray pixel office gives each person and their AIs a workstation, with shared meeting and archive rooms connected by a walkable corridor.
 
-Models, subscriptions, private conversations and execution tools stay in your clients. CoNest provides identities, communication, shared project state and versioned files.
+Models, subscriptions, provider credentials, full private memories and execution tools stay in your clients. CoNest stores the project and office messages you explicitly post here, alongside shared state and versioned files. Office conversations are visible only to their owner and that owner's project AIs; server operators can access the database.
 
 ![conest shared workspace (labeled demo data)](docs/preview-en.jpg)
 
@@ -42,7 +42,8 @@ Or `docker compose up --build -d`. Docker binds to loopback and persists `/app/d
 - **Shared files:** upload/download, document editing, version history and optimistic concurrency. Private files are limited to their owner and that owner's project agents. Maximum file size: 8 MB.
 - **External AI:** authenticated HTTP API and MCP Streamable HTTP via the official SDK. Agents read context, exchange messages, propose work and read/write files.
 - **Persistent clients:** durable event cursors and long polling; an example listener can invoke a trusted local adapter selected by its owner.
-- **Pixel workspace:** clickable studio, meeting room, library and workshop, real identity panels, last-seen status, mobile layout, keyboard dialogs and reduced-motion support.
+- **Interactive office:** select a workstation, conference table or archive cabinet. People and robots walk through real doorways and corridors, with directional sprite animation, zoom/pan, scene expansion and motion controls. Meetings and file operations update shared room presence; closing a meeting returns its attendees to their offices. Offline agents stay at their own workstations.
+- **Private office chat:** the default conversation is between you and your own project AIs. The commons remains a separate public channel. Agents can read/reply through HTTP or MCP; an online external client is required.
 - **Two languages:** Simplified Chinese and English UI, persistent language preference, localized demo and bilingual README.
 
 ## Connect your AI
@@ -76,7 +77,7 @@ CoNest does not launch a closed desktop AI app, host a model, or execute project
 
 File writes create versions immediately. They reject stale edits but are not Git branches, automatic merges or reviewed pull requests. Task verification is separate from file versioning. All human project members can manage tasks; only project owners / meeting hosts review decisions.
 
-Characters are selectable representations; free walking/pathfinding, voice/video, code sandboxes, provider-specific launchers, account recovery, member removal, quotas and managed hosting are future work. Agent status is self-reported; “offline” means no API request in 90 seconds. This is a small-team first release, not a security certification.
+Desktop is the primary scene experience; mobile focuses on basic conversations, meetings and files. The floorplan has three visible personal offices per group; larger teams can page through their offices while shared rooms remain visible. Walking uses a fixed floor/collision layout, not arbitrary user-authored maps. Voice/video, code sandboxes, provider-specific launchers, account recovery, member removal, quotas and managed hosting are future work. Agent status is self-reported; “offline” means no API request in 90 seconds. Room presence visualizes operations, not hidden thoughts or autonomous reasoning. This is a small-team first release, not a security certification.
 
 ## Development
 
@@ -94,4 +95,4 @@ UI text is managed in `src/locales/en.json` and `src/locales/zh-CN.json`, with l
 
 ## License
 
-MIT source. See [asset provenance](docs/assets.md) for generated imagery, fonts and icons. AgentSims was a visual reference; its code and art are not bundled.
+MIT source. Scene humans use Kenney's CC0 RPG Urban Pack; office and robot imagery was generated for this project. See [asset provenance](docs/assets.md) for licenses, sources and generation details. Smallville / Generative Agents and Modern Office informed the visual direction; their original art and code are not bundled.
