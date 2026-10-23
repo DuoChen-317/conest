@@ -1,5 +1,14 @@
 import { useEffect, useRef } from "react";
+import { officeObjectBounds as source } from "./office-objects";
 import type { SceneAssets } from "./scene-assets";
+import {
+  officeSeats,
+  meetingSeats,
+  receptionSeats,
+  deskParts,
+  officeScale as UNIT,
+  type Seat,
+} from "./office-layout";
 
 type Prop = {
   file: string;
@@ -14,142 +23,125 @@ type Prop = {
   depth?: number;
   flip?: boolean;
 };
-// Coordinates are in the native 576×432 game world. Floors, furnishings and people are separate layers.
+// Bounds are layout anchors, never clipping rectangles: every office single is drawn in full.
 const props: Prop[] = [];
-const put = (id: number, x: number, y: number, options: Partial<Prop> = {}) =>
-  props.push({ file: `office-${id}.png`, x, y, w: 32, h: 48, ...options });
-const source: Record<number, number[]> = {
-  263: [0, 16, 32, 19],
-  153: [4, 36, 12, 12],
-  165: [3, 35, 26, 13],
-  228: [0, 26, 10, 15],
-  242: [0, 38, 10, 10],
-  98: [1, 9, 14, 37],
-  99: [2, 21, 12, 25],
-  103: [2, 21, 12, 23],
-  104: [2, 21, 12, 23],
-  116: [4, 27, 25, 14],
-  124: [0, 41, 16, 5],
-  129: [0, 33, 16, 15],
-  130: [0, 34, 16, 14],
-  142: [0, 17, 15, 17],
-  149: [0, 17, 15, 19],
-  170: [0, 16, 32, 24],
-  171: [0, 16, 32, 24],
-  173: [3, 11, 12, 36],
-  174: [0, 17, 16, 31],
-  200: [0, 16, 32, 32],
-};
-function crop(
+function object(
   id: number,
   x: number,
   y: number,
-  scale = 1,
-  extra: Partial<Prop> = {},
+  scale = UNIT,
+  depth = 0,
+  flip = false,
 ) {
   const [sx, sy, sw, sh] = source[id];
-  put(id, x, y, { sx, sy, sw, sh, w: sw * scale, h: sh * scale, ...extra });
+  props.push({
+    file: `office-${id}.png`,
+    x: x - (flip ? 32 - sx - sw : sx) * scale,
+    y: y - sy * scale,
+    w: 32 * scale,
+    h: 48 * scale,
+    depth: depth || Math.round((y + sh * scale) / 4.32),
+    flip,
+  });
 }
-// The author's scenes are composed as working clusters, with one shared pixel scale.
-const UNIT = 1.5;
-function shelf(x: number, y: number, depth: number, wide = false) {
+function chair(seat: Seat) {
+  object(
+    seat.facing === "right" ? 104 : 103,
+    seat.x - 9,
+    seat.y - 34.5,
+    UNIT,
+    seat.y / 4.32 + 1,
+  );
+}
+function shelf(x: number, y: number, wide = false) {
+  // The narrow cabinet is the complete neighboring single, not one cut-off column of the wide cabinet.
   props.push({
     file: "library.png",
     x,
     y,
-    w: wide ? 72 : 24,
-    h: 72,
-    sx: 0,
+    w: (wide ? 48 : 16) * UNIT,
+    h: 48 * UNIT,
+    sx: wide ? 0 : 48,
     sy: 208,
     sw: wide ? 48 : 16,
     sh: 48,
-    depth,
+    depth: (y + 42 * UNIT) / 4.32 + 3,
   });
 }
-function desk(seat: number, feet: number, variant: number) {
-  const depth = feet / 4.32;
-  crop(103, seat - 10, feet - 29, UNIT, { depth: depth + 1 });
-  crop(263, seat + 7, feet - 21, UNIT, { depth: depth + 6 });
-  crop(124, seat + 10, feet - 16, 1, { depth: depth + 8 });
-  crop(variant % 2 ? 130 : 129, seat + 28, feet - 35, UNIT, {
-    depth: depth + 8,
-  });
-  crop(242, seat + 39, feet - 10, 0.65, { depth: depth + 8 });
-  crop(153, seat + 9, feet - 21, 0.75, { depth: depth + 9 });
-  crop(228, seat + 47, feet - 29, 0.85, { depth: depth + 9 });
+function mountedAircon(x: number, capY: number) {
+  object(165, x, capY + 3.5, UNIT, 7);
 }
-// Private offices: wall storage, an owner/AI workstation pair, and a small review corner.
+function workstation(seat: Seat) {
+  const mirror = seat.facing === "left",
+    depth = seat.y / 4.32;
+  chair(seat);
+  // Top with an open return + the matching lower module, joined at the native 16px seam.
+  for (const part of deskParts(seat))
+    object(part.id, part.x, part.y, UNIT, depth + 3, part.flip);
+  const onDesk = (id: number, dx: number, dy: number) => {
+    const width = source[id][2] * UNIT;
+    object(
+      id,
+      mirror ? seat.x - dx - width : seat.x + dx,
+      seat.y + dy,
+      UNIT,
+      depth + 4,
+      mirror,
+    );
+  };
+  onDesk(129, 25, -53.5);
+  onDesk(124, 9, -24);
+  onDesk(242, 38, -25);
+  onDesk(153, 34, -10);
+}
 for (let i = 0; i < 3; i++) {
-  const left = [24, 204, 396][i],
-    human = 80 + i * 180,
-    robot = 126 + i * 180;
-  shelf(left + 5, 34, 23);
-  crop(165, left + 46, 28, UNIT, { depth: 12 });
-  crop(i === 1 ? 171 : 170, left + 95, 31, UNIT, { depth: 16 });
-  crop(98, left + 135, 51, UNIT, { depth: 28 });
-  desk(human, 98, i);
-  desk(robot, 146, i + 1);
-  crop(200, left + 6, 143, 1.25, { depth: 44 });
-  crop(142, left + 45, 146, 1.2, { depth: 44 });
-  crop(149, left + 133, 159, 1.25, { depth: 49 });
-  crop(99, left + 113, 166, 1.2, { depth: 49 });
+  const left = [24, 204, 396][i];
+  shelf(left + 5, 27);
+  mountedAircon(left + 28, 16);
+  object(i === 1 ? 171 : 170, left + 96, 25, UNIT, 15);
+  object(98, left + 135, 66);
+  for (const seat of officeSeats[i]) workstation(seat);
+  object(323, left + 126, 143);
+  object(168, left + 4, 148);
 }
-// A vertical conference table lets both sides use the actual side-facing seated poses.
-for (let row = 0; row < 6; row++)
+// Connected 3×5 conference table: identical pixel scale on both axes, one continuous top and base.
+for (let row = 0; row < 5; row++)
   for (let col = 0; col < 3; col++)
     props.push({
       file: "office.png",
-      x: 104 + col * 18,
-      y: 270 + row * 20,
-      w: 18,
-      h: 20,
+      x: 96 + col * 24,
+      y: 280 + row * 24,
+      w: 24,
+      h: 24,
       sx: (6 + col) * 16,
-      sy: (row === 0 ? 4 : row === 5 ? 6 : 5) * 16,
+      sy: (row === 0 ? 4 : row === 4 ? 6 : 5) * 16,
       sw: 16,
       sh: 16,
-      depth: Math.round((290 + row * 20) / 4.32) + 5,
+      depth: Math.round((304 + row * 24) / 4.32) + 2,
     });
-for (let row = 0; row < 4; row++) {
-  const feet = 282 + row * 32;
-  crop(103, 86, feet - 29, UNIT, { depth: feet / 4.32 + 1 });
-  crop(104, 158, feet - 29, UNIT, { depth: feet / 4.32 + 1 });
-}
-crop(171, 101, 237, UNIT, { depth: 58 });
-crop(165, 36, 239, UNIT, { depth: 58 });
-crop(98, 197, 243, UNIT, { depth: 66 });
-crop(149, 36, 348, UNIT, { depth: 87 });
-crop(99, 198, 366, UNIT, { depth: 91 });
-crop(153, 121, 293, 1, { depth: 75 });
-crop(242, 137, 335, 1, { depth: 85 });
-// The archive has a real doorway/aisle between wall shelving and a shared reading counter.
-shelf(364, 254, 76, true);
-shelf(480, 254, 76, true);
-crop(116, 442, 238, 1.2, { depth: 58 });
-for (const x of [366, 510]) {
-  props.push({
-    file: "library.png",
-    x,
-    y: 370,
-    w: 36,
-    h: 36,
-    sx: 0,
-    sy: 208,
-    sw: 48,
-    sh: 48,
-    depth: 98,
-  });
-}
-crop(263, 436, 378, UNIT, { depth: 98 });
-crop(142, 467, 363, 1, { depth: 99 });
-crop(153, 444, 376, 0.8, { depth: 99 });
-// Reception stays small: seating around a clear route from the entrance to the corridor.
-crop(200, 238, 284, 1.25, { depth: 78 });
-crop(200, 310, 284, 1.25, { depth: 78 });
-crop(174, 320, 239, 1.4, { depth: 67 });
-crop(173, 322, 269, 1.4, { depth: 75 });
-crop(149, 240, 349, 1.4, { depth: 90 });
-crop(98, 240, 375, UNIT, { depth: 99 });
-crop(98, 324, 375, UNIT, { depth: 99 });
+for (const seat of meetingSeats) chair(seat);
+mountedAircon(170, 228);
+object(171, 108, 237, UNIT, 58);
+object(98, 197, 273);
+// Tabletop items remain at the same scale as the workstations.
+object(153, 120, 306, UNIT, 78);
+object(242, 123, 354, UNIT, 90);
+// Full cabinet units flank the aisle. The reading counter also includes its return module.
+shelf(364, 237, true);
+shelf(480, 237, true);
+object(263, 434, 356, UNIT, 96);
+object(262, 458, 380, UNIT, 98);
+object(142, 458, 342, UNIT, 99);
+object(153, 438, 357, UNIT, 99);
+object(242, 462, 383, UNIT, 99);
+object(99, 366, 381);
+object(173, 528, 350);
+// Whole coffee/printer prefabs retain their tabletop, equipment and legs together.
+object(320, 238, 266);
+object(175, 315, 266);
+for (const seat of receptionSeats) chair(seat);
+object(99, 238, 381);
+object(99, 326, 381);
 
 function Base({ assets }: { assets: SceneAssets }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -190,7 +182,7 @@ function Base({ assets }: { assets: SceneAssets }) {
       [200, 184],
       [392, 160],
     ])
-      floor(x, 60, w, 132, 12, 7, true);
+      floor(x, 72, w, 120, 12, 7, true);
     floor(24, 236, 200, 172, 12, 7, true);
     floor(360, 236, 192, 172, 12, 7, true);
     floor(232, 236, 120, 180, 14, 5);
@@ -202,14 +194,17 @@ function Base({ assets }: { assets: SceneAssets }) {
       ctx.fillRect(x, y + h, w, 5);
     };
     // Original brick faces and white cutaway caps, rather than freehand colored boxes.
-    wallFace(24, 24, 528, 36);
+    wallFace(24, 24, 528, 48);
     for (const [x, w] of [
       [24, 24],
       [72, 208],
       [304, 136],
       [464, 88],
     ])
-      wallFace(x, 236, w, 25);
+      wallFace(x, 236, w, 36);
+    // Taller archive wall accommodates the complete tall cabinets, with their bases at the floor.
+    wallFace(360, 236, 80, 60);
+    wallFace(464, 236, 88, 60);
     const wall = (x: number, y: number, w: number, h = 8) => {
       ctx.fillStyle = "#424d64";
       ctx.fillRect(x, y, w, h);
@@ -297,6 +292,22 @@ export default function OfficeScene({ assets }: { assets: SceneAssets }) {
   return (
     <>
       <Base assets={assets} />
+      <div
+        className="office-mount-cap"
+        style={{ left: 32, top: 32, width: 1088 }}
+      />
+      {[
+        [24, 48],
+        [72, 280],
+        [304, 440],
+        [464, 552],
+      ].map(([x, r]) => (
+        <div
+          key={x}
+          className="office-mount-cap"
+          style={{ left: x * 2, top: 456, width: (r - x) * 2 }}
+        />
+      ))}
       {props.map((p, i) => (
         <Furnishing key={i} p={p} />
       ))}

@@ -21,6 +21,7 @@ import {
   findPath,
   officeWalkable,
   officeDestination,
+  officeFacing,
   officeWorld,
   walkable,
   roomNames,
@@ -30,6 +31,7 @@ import {
 import type { Item } from "./api";
 import { useSceneAssets } from "./scene-assets";
 import OfficeScene from "./OfficeScene";
+import { officeSeats } from "./office-layout";
 import ResidentAnimation from "./ResidentAnimation";
 import {
   interactionFor,
@@ -158,6 +160,7 @@ type Resident = {
   goal: Point;
   activity: Interaction;
   speakingUntil: number;
+  facing?: number;
 };
 function Walker({
   resident,
@@ -205,15 +208,7 @@ function Walker({
       place(resident.goal);
       setWalking(false);
       setFrame(0);
-      setDirection(
-        assets && (resident.room === "office" || resident.room === "meeting")
-          ? resident.room === "meeting" && resident.goal.x > 23
-            ? 0
-            : 3
-          : resident.room === "office"
-            ? 2
-            : 1,
-      );
+      setDirection(resident.facing ?? (resident.room === "office" ? 2 : 1));
       return;
     }
     if (paused) return;
@@ -259,15 +254,12 @@ function Walker({
         setWalking(false);
         setFrame(0);
         setDirection(
-          assets && (resident.room === "office" || resident.room === "meeting")
-            ? resident.room === "meeting" && resident.goal.x > 23
-              ? 0
-              : 3
-            : resident.room === "office"
+          resident.facing ??
+            (resident.room === "office"
               ? 2
               : resident.room === "meeting" && resident.goal.y > 65
                 ? 2
-                : 1,
+                : 1),
         );
         return;
       }
@@ -285,6 +277,7 @@ function Walker({
     resident.goal.x,
     resident.goal.y,
     resident.room,
+    resident.facing,
     paused,
     reduced,
     assets,
@@ -506,6 +499,14 @@ export default function HouseWorld({
               .filter((m: Item) => m.actor_id === r.id && m.meeting_id)
               .map((m: Item) => Date.parse(m.created_at) + 8000),
           ),
+          facing: assets
+            ? officeFacing(
+                room,
+                r.office,
+                room === "office" ? ownAgents : count,
+                r.robot,
+              )
+            : undefined,
           goal: (assets ? officeDestination : destination)(
             room,
             r.office,
@@ -580,7 +581,7 @@ export default function HouseWorld({
   const person = residents.find((r: Resident) => r.id === selected);
   return (
     <section
-      className={`house-world ${compact && !expanded ? "compact" : ""} ${expanded ? "expanded" : ""}`}
+      className={`house-world ${assets ? "licensed" : ""} ${compact && !expanded ? "compact" : ""} ${expanded ? "expanded" : ""}`}
       aria-label={tr("共享办公室场景")}
     >
       <header className="house-toolbar">
@@ -693,7 +694,7 @@ export default function HouseWorld({
                 className={`house-room office-${i} ${member.id === ownId ? "mine" : ""}`}
                 style={{
                   left: `${[18.5, 50, 80.8][i]}%`,
-                  top: assets ? "42.5%" : "29%",
+                  top: assets ? "43.5%" : "29%",
                 }}
                 onClick={() => {
                   setSelected(member.id);
@@ -718,7 +719,7 @@ export default function HouseWorld({
             className="house-room"
             style={{
               left: assets ? "23%" : "23.7%",
-              top: assets ? "57%" : "51.5%",
+              top: assets ? "94.4%" : "51.5%",
             }}
             onClick={() => onRoom("meeting")}
           >
@@ -738,7 +739,7 @@ export default function HouseWorld({
           </button>
           <button
             className="house-room"
-            style={{ left: "50%", top: assets ? "89%" : "83%" }}
+            style={{ left: "50%", top: assets ? "95.5%" : "83%" }}
             onClick={() => onRoom("commons")}
           >
             <HouseLine size={22} />
@@ -753,9 +754,11 @@ export default function HouseWorld({
                   className="house-object desk-object"
                   style={{
                     left: assets
-                      ? `${((d ? 151 : 105) + i * 180) / 5.76}%`
+                      ? `${(officeSeats[i][d].x + (officeSeats[i][d].facing === "right" ? 31 : -31)) / 5.76}%`
                       : `${[18.5, 50, 80.8][i] + (d ? 4.7 : -4.2)}%`,
-                    top: assets ? (d ? "31%" : "20%") : "13%",
+                    top: assets
+                      ? `${(officeSeats[i][d].y - 18) / 4.32}%`
+                      : "13%",
                   }}
                   aria-label={tr("使用 {name} 的工位", { name: member.name })}
                   onClick={() => {
@@ -779,7 +782,7 @@ export default function HouseWorld({
             className="house-object meeting-object"
             style={
               assets
-                ? { left: "23%", top: "77%", width: 108, height: 240 }
+                ? { left: "22.9167%", top: "78.7%", width: 144, height: 240 }
                 : undefined
             }
             aria-label={tr("在会议桌旁入座")}

@@ -84,6 +84,11 @@ test("licensed furniture leaves reachable workstations and an archive aisle with
         );
         const path = findPath(home, target, officeWalkable);
         assertClearPath(path, officeWalkable);
+        assert.deepEqual(
+          path.at(-1),
+          target,
+          "arrival must use the exact chair/reading anchor, not a nearby grid tile",
+        );
         assertClearPath(findPath(target, home, officeWalkable), officeWalkable);
         assert.ok(
           Math.hypot(path.at(-1)!.x - target.x, path.at(-1)!.y - target.y) < 1,
@@ -94,6 +99,10 @@ test("licensed furniture leaves reachable workstations and an archive aisle with
     const meeting = officeDestination("meeting", 0, seat);
     const archive = officeDestination("library", 0, seat);
     assertClearPath(findPath(meeting, archive, officeWalkable), officeWalkable);
+    assert.deepEqual(
+      findPath(archive, meeting, officeWalkable).at(-1),
+      meeting,
+    );
     assert.ok(officeWalkable(meeting.x, meeting.y));
     assert.ok(officeWalkable(archive.x, archive.y));
   }

@@ -94,6 +94,10 @@ export default function ResidentAnimation({
           ctx.beginPath();
           ctx.rect(14, 32, 38, 16);
           ctx.clip();
+          if (direction === 0) {
+            ctx.translate(64, 0);
+            ctx.scale(-1, 1);
+          }
           ctx.drawImage(
             sheet,
             (frame % 6) * 16,
@@ -110,48 +114,69 @@ export default function ResidentAnimation({
       } else if (robotImage?.complete && robotImage.naturalWidth) {
         const row = walking ? walkFrame % 3 : 0;
         const dir = activity === "reading" && !walking ? 1 : direction;
-        const [left, top, right, bottom] = bounds[row][dir];
-        const h = bottom - top,
-          w = right - left,
-          ratio = 54 / h;
         ctx.save();
         if (skin % 3 === 2) ctx.filter = "hue-rotate(30deg)";
-        ctx.drawImage(
-          robotImage,
-          dir * 362 + left,
-          row * 362 + top,
-          w,
-          h,
-          32 - (w * ratio) / 2,
-          64 - h * ratio,
-          w * ratio,
-          h * ratio,
-        );
+        const seated =
+          !walking &&
+          ["seated", "typing", "listening", "speaking"].includes(action);
+        const drawRobot = (frame: number) => {
+          const [l, t, r, b] = bounds[frame][dir],
+            height = b - t,
+            width = r - l,
+            scale = 54 / height;
+          const x = 32 - (width * scale) / 2;
+          if (!seated)
+            ctx.drawImage(
+              robotImage!,
+              dir * 362 + l,
+              frame * 362 + t,
+              width,
+              height,
+              x,
+              10,
+              width * scale,
+              54,
+            );
+          else {
+            // Keep the head/torso proportions. Lower the hips into the seat and bend the feet toward the desk.
+            const hip = Math.round(height * 0.78);
+            ctx.drawImage(
+              robotImage!,
+              dir * 362 + l,
+              frame * 362 + t,
+              width,
+              hip,
+              x,
+              16,
+              width * scale,
+              hip * scale,
+            );
+            ctx.drawImage(
+              robotImage!,
+              dir * 362 + l,
+              frame * 362 + t + hip,
+              width,
+              height - hip,
+              x + (dir === 0 ? -5 : 5),
+              54,
+              width * scale,
+              10,
+            );
+          }
+        };
+        drawRobot(row);
         if (
           !walking &&
           (action === "typing" || action === "reading" || action === "speaking")
         ) {
           // Only the articulated arm band changes; feet/head stay fixed at the interaction slot.
-          const r = (frame % 2) + 1,
-            [l, t, rr, b] = bounds[r][dir],
-            rh = b - t,
-            rw = rr - l,
-            rp = 54 / rh;
+          const r = (frame % 2) + 1;
+          const armY = seated ? 37 : 33;
           ctx.beginPath();
-          ctx.rect(dir === 0 ? 6 : 28, 33, 30, 18);
+          ctx.rect(dir === 0 ? 6 : 28, armY, 30, 18);
           ctx.clip();
-          ctx.clearRect(dir === 0 ? 6 : 28, 33, 30, 18);
-          ctx.drawImage(
-            robotImage,
-            dir * 362 + l,
-            r * 362 + t,
-            rw,
-            rh,
-            32 - (rw * rp) / 2,
-            64 - rh * rp,
-            rw * rp,
-            rh * rp,
-          );
+          ctx.clearRect(dir === 0 ? 6 : 28, armY, 30, 18);
+          drawRobot(r);
         }
         ctx.restore();
         if (!walking && action === "reading") {

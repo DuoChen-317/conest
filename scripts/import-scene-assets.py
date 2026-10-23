@@ -19,7 +19,7 @@ items={
 }
 for i,n in enumerate([1,5,12]):
  items[f'person-{i}.png']=('interiors',f'2_Characters/Character_Generator/0_Premade_Characters/16x16/Premade_Character_{n:02}.png')
-for n in [98, 99, 103, 104, 116, 124, 129, 130, 142, 149, 153, 165, 170, 171, 173, 174, 200, 228, 242, 263]:
+for n in [98, 99, 103, 104, 116, 124, 129, 130, 142, 149, 153, 165, 170, 171, 173, 174, 200, 228, 242, 262, 263, 168, 175, 320, 323]:
  items[f'office-{n}.png']=('office',f'4_Modern_Office_singles/16x16/Modern_Office_Singles_{n}.png')
 archives={'office':zipfile.ZipFile(a.office),'interiors':zipfile.ZipFile(a.interiors)}
 try:

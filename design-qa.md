@@ -1,8 +1,20 @@
 # Design QA
 
-final result: passed
+Functional checks: passed. Visual revision: ready for user review.
 
-## Latest revision — compact author-referenced office, 2026-10-23
+## Latest revision — complete objects and physical placement, 2026-10-23
+
+The user accepted the overall direction but rejected the details, supplying two author references and explicitly identifying wall-mounted AC placement, chair directions and incomplete modular assets. The previous compact revision is superseded by these corrections; no claim of aesthetic approval is made.
+
+Corrected source usage: single office sprites now draw their entire original 32×48 canvas instead of hand-authored visible crop rectangles. This restores the whiteboard's bottom tray, the complete vending machine and cooler, and full plant silhouettes. The private narrow bookcase now uses its actual complete adjacent cabinet unit. Each white L desk joins the matching upper table and lower return at their native seam. Complete coffee/printer prefabs keep equipment, tabletop and legs together. A uniformly scaled 3×5 table replaces nonuniformly stretched conference tiles.
+
+Spatial corrections: AC mounting is flush with the wall cap, with original mounting pixels occluded behind it. Boards fit inside the wall face. Chairs face their desks; both sides of the meeting table face inward. Workstation furniture, actor facing and arrival positions share native seat data. A final sub-tile approach reaches the exact authored anchor. Printer carts, filing cabinets and lamps have appropriate supporting surfaces and leave usable circulation. Room plaques are smaller and no longer cover the meeting board. Robot hips/feet use a seated pose composite; hands still animate independently.
+
+Evidence: `work/qa/details-office-expanded.png`, `work/qa/details-office-zh.png`, `work/qa/details-office-en.png`, `work/qa/details-meeting.png` and `work/qa/details-reading.png`. Bilingual README previews were replaced. Browser inspection found **83 office single sprites**, all loaded and all showing their full canvas with zero clipped singles. Original source contact sheets and library grid inspection remain under ignored `work/qa/detail-*`. Purchased files stay outside Git. The importer now selects 32 PNGs.
+
+Verification: all three owner/AI pairs can reach every room and all conference/reading spots; tests now require exact seating endpoints. Chinese/English surfaces, full-object rendering, meeting arrival and reading were checked in the production browser. `npm test`: **22 passing**; `npm run build`: passed. The current revision still awaits the user's visual judgment.
+
+## Previous revision — compact author-referenced office
 
 The user rejected the first sparse licensed layout and explicitly prioritized a harmonious, natural composition over size. The new native 576×432 map follows [LimeZu's complete Modern Office examples](https://limezu.itch.io/modernoffice): clustered desk/computer/document workstations, storage and equipment along walls, shallow white brick faces, narrow caps, blue-gray carpet and short circulation. The conference table now runs vertically so the actual side-facing seated poses face one another. The archive has wall shelving, an aisle and a reading counter. Actor details no longer cover the scene before selection.
 

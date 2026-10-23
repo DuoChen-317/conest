@@ -1,3 +1,9 @@
+import {
+  officeSeats,
+  meetingSeats,
+  archiveSpots,
+  receptionSeats,
+} from "./office-layout";
 export type Room = "office" | "meeting" | "library" | "commons";
 export type Point = { x: number; y: number };
 export const officeDoors = [18.5, 50, 80.8];
@@ -65,21 +71,32 @@ export function officeDestination(
   index: number,
   robot = false,
 ): Point {
-  let x: number, y: number;
-  if (room === "office") {
-    x = (robot ? 126 : 80) + (office % 3) * 180;
-    y = robot ? 146 : 98;
-  } else if (room === "meeting") {
-    x = index % 2 ? 168 : 96;
-    y = 282 + (Math.floor(index / 2) % 4) * 32;
-  } else if (room === "library") {
-    x = 408 + (index % 4) * 32;
-    y = 346 + (Math.floor(index / 4) % 2) * 20;
-  } else {
-    x = index % 2 ? 324 : 260;
-    y = 320 + (Math.floor(index / 2) % 3) * 28;
-  }
+  const point =
+    room === "office"
+      ? officeSeats[office % 3][Number(robot)]
+      : room === "meeting"
+        ? meetingSeats[index % meetingSeats.length]
+        : room === "library"
+          ? archiveSpots[index % archiveSpots.length]
+          : receptionSeats[index % receptionSeats.length];
+  const { x, y } = point;
   return { x: x / 5.76, y: y / 4.32 };
+}
+export function officeFacing(
+  room: Room,
+  office: number,
+  index: number,
+  robot = false,
+) {
+  const seat =
+    room === "office"
+      ? officeSeats[office % 3][Number(robot)]
+      : room === "meeting"
+        ? meetingSeats[index % meetingSeats.length]
+        : room === "commons"
+          ? receptionSeats[index % receptionSeats.length]
+          : null;
+  return seat ? (seat.facing === "left" ? 0 : 3) : 1;
 }
 export function officeWalkable(x: number, y: number) {
   const px = x * 5.76,
@@ -88,9 +105,9 @@ export function officeWalkable(x: number, y: number) {
     inside(px, py, l, t, r, b);
   const floor =
     inRect(24, 200, 552, 228) ||
-    inRect(24, 76, 190, 184) ||
-    inRect(202, 76, 382, 184) ||
-    inRect(394, 76, 550, 184) ||
+    inRect(24, 76, 190, 190) ||
+    inRect(202, 76, 382, 190) ||
+    inRect(394, 76, 550, 190) ||
     inRect(104, 184, 128, 212) ||
     inRect(280, 184, 304, 212) ||
     inRect(460, 184, 484, 212) ||
@@ -101,20 +118,22 @@ export function officeWalkable(x: number, y: number) {
     inRect(234, 268, 350, 416) ||
     inRect(362, 268, 550, 400);
   if (!floor) return false;
-  if (inRect(100, 266, 164, 394)) return false;
-  if (inRect(360, 250, 440, 330) || inRect(476, 250, 552, 330)) return false;
-  if (inRect(362, 368, 406, 408) || inRect(506, 368, 550, 408)) return false;
-  if (inRect(432, 374, 488, 408)) return false;
+  if (inRect(94, 276, 170, 404)) return false;
+  if (inRect(360, 236, 440, 304) || inRect(476, 236, 552, 304)) return false;
+  if (inRect(430, 352, 486, 382) || inRect(454, 376, 486, 408)) return false;
+  if (inRect(236, 264, 279, 317) || inRect(312, 264, 352, 321)) return false;
+  if (inRect(524, 346, 552, 400)) return false;
   // Feet may approach the chair; they never pass through the desktop, sofa or cabinet.
-  for (let i = 0; i < 3; i++) {
-    for (const [seat, feet] of [
-      [80 + i * 180, 98],
-      [126 + i * 180, 146],
-    ])
-      if (inRect(seat + 5, feet - 23, seat + 59, feet + 6)) return false;
-    const left = [24, 204, 396][i];
-    if (inRect(left + 3, 140, left + 49, 183)) return false;
-    if (inRect(left + 130, 156, left + 157, 187)) return false;
+  for (const seats of officeSeats)
+    for (const seat of seats) {
+      const left = seat.facing === "left" ? seat.x - 55 : seat.x + 7;
+      if (inRect(left - 2, seat.y - 38, left + 50, seat.y - 10)) return false;
+      const leg = seat.facing === "left" ? left : left + 24;
+      if (inRect(leg - 2, seat.y - 14, leg + 26, seat.y + 14)) return false;
+    }
+  for (const left of [24, 204, 396]) {
+    if (inRect(left + 114, 136, left + 176, 186)) return false;
+    if (inRect(left + 2, 136, left + 36, 186)) return false;
   }
   return true;
 }
@@ -174,6 +193,35 @@ export function findPath(
     point = previous.get(key(point)) ?? null
   )
     path.unshift(point);
+  // The grid finds the route; the final short approach reaches the authored chair anchor exactly.
+  const last = path.at(-1)!;
+  if (canWalk(end.x, end.y) && (last.x !== end.x || last.y !== end.y)) {
+    const clear = (a: Point, b: Point) => {
+      const steps = Math.max(
+        1,
+        Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 10),
+      );
+      for (let i = 0; i <= steps; i++)
+        if (
+          !canWalk(
+            a.x + ((b.x - a.x) * i) / steps,
+            a.y + ((b.y - a.y) * i) / steps,
+          )
+        )
+          return false;
+      return true;
+    };
+    for (const elbow of [
+      { x: end.x, y: last.y },
+      { x: last.x, y: end.y },
+    ]) {
+      if (clear(last, elbow) && clear(elbow, end)) {
+        if (elbow.x !== last.x || elbow.y !== last.y) path.push(elbow);
+        if (elbow.x !== end.x || elbow.y !== end.y) path.push(end);
+        break;
+      }
+    }
+  }
   const simplified: Point[] = [];
   path.forEach((p, i) => {
     const a = path[i - 1],

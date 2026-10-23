@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { requiredSceneImages } from "./office-objects";
 
 export type SceneAssets = {
   images: Record<string, HTMLImageElement>;
@@ -14,7 +15,8 @@ function load(): Promise<SceneAssets | null> {
       if (
         !manifest.available ||
         manifest.version !== 1 ||
-        !Array.isArray(manifest.characters)
+        !Array.isArray(manifest.characters) ||
+        manifest.characters.length === 0
       )
         return null;
       const images: SceneAssets["images"] = {};
@@ -29,7 +31,7 @@ function load(): Promise<SceneAssets | null> {
         }),
       );
       if (
-        !["room.png", "library.png", "book.png", ...manifest.characters].every(
+        ![...requiredSceneImages, ...manifest.characters].every(
           (name) => images[name],
         )
       )

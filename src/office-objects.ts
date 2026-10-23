@@ -1,0 +1,35 @@
+/** Alpha bounds anchor complete original 32×48 singles; these are never image clipping rectangles. */
+export const officeObjectBounds: Record<number, number[]> = {
+  98: [0, 10, 16, 28],
+  99: [0, 20, 16, 18],
+  103: [2, 21, 12, 23],
+  104: [2, 21, 12, 23],
+  116: [4, 27, 25, 14],
+  124: [0, 41, 16, 5],
+  129: [0, 33, 15, 15],
+  142: [0, 17, 15, 17],
+  149: [0, 17, 15, 19],
+  153: [4, 36, 12, 12],
+  165: [3, 35, 26, 13],
+  168: [2, 16, 13, 22],
+  170: [1, 23, 30, 23],
+  171: [1, 23, 30, 23],
+  173: [1, 8, 14, 30],
+  174: [8, 16, 18, 23],
+  175: [5, 5, 23, 34],
+  200: [1, 20, 31, 24],
+  228: [0, 26, 10, 15],
+  242: [0, 38, 10, 10],
+  262: [0, 32, 16, 16],
+  263: [0, 16, 32, 19],
+  320: [4, 7, 26, 32],
+  323: [3, 12, 26, 27],
+};
+
+export const requiredSceneImages = [
+  "office.png",
+  "room.png",
+  "library.png",
+  "book.png",
+  ...Object.keys(officeObjectBounds).map((id) => `office-${id}.png`),
+];
