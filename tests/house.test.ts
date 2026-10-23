@@ -75,6 +75,10 @@ test("licensed furniture leaves reachable workstations and an archive aisle with
   for (let office = 0; office < 3; office++)
     for (const robot of [false, true]) {
       const home = officeDestination("office", office, 0, robot);
+      assert.ok(
+        officeWalkable(home.x, home.y),
+        `office ${office + 1} ${robot ? "AI" : "human"} seat must not be blocked by furniture`,
+      );
       for (const room of ["meeting", "library", "commons"] as Room[]) {
         const target = officeDestination(
           room,
@@ -89,9 +93,12 @@ test("licensed furniture leaves reachable workstations and an archive aisle with
           target,
           "arrival must use the exact chair/reading anchor, not a nearby grid tile",
         );
-        assertClearPath(findPath(target, home, officeWalkable), officeWalkable);
-        assert.ok(
-          Math.hypot(path.at(-1)!.x - target.x, path.at(-1)!.y - target.y) < 1,
+        const returnPath = findPath(target, home, officeWalkable);
+        assertClearPath(returnPath, officeWalkable);
+        assert.deepEqual(
+          returnPath.at(-1),
+          home,
+          "returning home must reach the exact seat, not the nearest unblocked tile",
         );
       }
     }
@@ -117,4 +124,9 @@ test("licensed furniture leaves reachable workstations and an archive aisle with
     "a real shelf occupies this floor point",
   );
   assert.equal(officeWalkable(78.5, 65), true, "the shelf aisle remains clear");
+  assert.equal(
+    officeWalkable(413 / 5.76, 160 / 4.32),
+    false,
+    "the cabinet beside Nova still blocks traversal through its real footprint",
+  );
 });

@@ -3,7 +3,9 @@ import {
   meetingSeats,
   archiveSpots,
   receptionSeats,
+  officeScale,
 } from "./office-layout";
+import { officeObjectBounds } from "./office-objects";
 export type Room = "office" | "meeting" | "library" | "commons";
 export type Point = { x: number; y: number };
 export const officeDoors = [18.5, 50, 80.8];
@@ -133,7 +135,18 @@ export function officeWalkable(x: number, y: number) {
     }
   for (const left of [24, 204, 396]) {
     if (inRect(left + 114, 136, left + 176, 186)) return false;
-    if (inRect(left + 2, 136, left + 36, 186)) return false;
+    // Match the complete cabinet drawn at (left + 4, 148), with 2px clearance.
+    // The old 34px-wide box covered the third office's AI chair anchor.
+    const [, , width, height] = officeObjectBounds[168];
+    if (
+      inRect(
+        left + 2,
+        146,
+        left + 6 + width * officeScale,
+        150 + height * officeScale,
+      )
+    )
+      return false;
   }
   return true;
 }

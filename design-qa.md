@@ -1,5 +1,12 @@
 # Design QA
 
+## Nova seat alignment correction — 2026-10-23
+
+Nova was stopping at a nearby navigation tile (76%, 39%) instead of its authored chair (73.6111%, 38.8889%). The third office's cabinet collision box extended beyond the actual 13×22px source silhouette at 1.5× scale and covered that seat. The box now derives from the same complete asset dimensions used by rendering, with 2 native pixels of clearance. No sprite offsets or furniture changes were needed.
+
+The regression first failed specifically for office 3's AI seat, then passed after the collision fix. All six home seats are explicitly checked as walkable; outbound and return routes must reach exact authored anchors, while a point inside Nova's adjacent cabinet remains blocked. All 22 tests and the production build pass. Browser evidence: `work/qa/nova-before.png`, `work/qa/nova-seat-fixed.png`; final close-up saved for user review. Browser verification also moved Nova to the archive and back: it returned to (73.6111%, 38.8889%), `seated`, no walking state. Chinese and English README previews were recaptured after the correction. Earlier robot preview claims below predate this correction.
+
+
 ## Robot style revision — 2026-10-23
 
 The user accepted the office scene and requested matching robot art. The accepted room layout and purchased furniture remain unchanged. A new built-in ImageGen transparent atlas replaces the glossy saturated robot with a matte slate/ivory design and small teal eyes. Twenty complete generated poses cover four-direction idle/walking, left/right seated typing, front-facing document reading and seated speech gestures. One renderer and measured full-silhouette bounds serve the paid scene, fallback scene and small avatars; there is no longer a second set of irregular old-atlas bounds or sliced standing legs. Original generated alpha is retained. See [asset and final prompt](docs/assets.md).
