@@ -1,5 +1,14 @@
 # Design QA
 
+## Robots modified from original character layers — 2026-10-23
+
+The user requested testing robot designs by editing the original character-generator layers. The local variant combines Body_01, Eyes_03, Outfit_22_04 and Accessory_07_Bataclava_02. Skin becomes dark joints/visor, the head covering becomes a light metal casing, the uniform becomes slate armor, and eyes/chest carry three subtle AI identity colors. Silhouettes, action coordinates and alpha are preserved; no ImageGen redraw is used. Modified atlases remain in ignored paid runtime storage. The reproducible script and optional manifest support are committed.
+
+Native robots share the existing character action renderer for all four movement directions, seated frames, keyboard forearm retargeting, reading and message-driven gestures. The native walking cycle uses all six source frames. Installations without optional robot atlases keep the generated fallback.
+
+Browser evidence: `work/qa/native-robot-reading-scene.png` and `work/qa/native-robot-meeting-scene.png`. Atlas reached the archive with reading/walking=false; pause held `reading-0` across separate checks, and resume restored animation. Alex and three native robots reached meeting seats with listening/walking=false. A separate production server with the original 32-image manifest and no robot extension showed the generated robots without browser errors or warnings. Existing 22 tests, TypeScript/production build and Python syntax validation passed. No claim of user approval is made for this robot appearance. Earlier generated robot entries below describe superseded local visuals.
+
+
 ## Nova seat alignment correction — 2026-10-23
 
 Nova was stopping at a nearby navigation tile (76%, 39%) instead of its authored chair (73.6111%, 38.8889%). The third office's cabinet collision box extended beyond the actual 13×22px source silhouette at 1.5× scale and covered that seat. The box now derives from the same complete asset dimensions used by rendering, with 2 native pixels of clearance. No sprite offsets or furniture changes were needed.

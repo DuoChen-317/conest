@@ -4,6 +4,8 @@
 
 The local licensed scene uses purchased LimeZu Modern Interiors v41.4 and Modern Office Revamped v1.2. Our code/importer is committed; their images stay in ignored `data/scene-assets` and are served at runtime. The scene footer credits LimeZu. See [import instructions, action coverage and license boundaries](licensed-assets.md). The generated/CC0 art below remains the distributable fallback.
 
+The optional `scripts/build-native-robots.py` now derives mechanical AI characters from the purchased generator's aligned body, eye, outfit and head-covering PNG layers. Color remapping and layer composition preserve the original movement/seated/reading geometry. Only the recipe and renderer are committed; modified PNGs stay local under the paid asset license. When present, these variants replace the generated robot in the licensed scene and avatars. This workflow uses existing editable source layers and does not call ImageGen or launch third-party generator binaries.
+
 ## Included office assets
 
 - `public/assets/shared-house.png` — 1536×1024, original ImageGen floorplan, revised on 2026-10-23 into a cool blue-gray workplace. Three private offices, connected corridor, conference room, archive and reception. No people or text baked into the floorplan.

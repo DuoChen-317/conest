@@ -19,6 +19,18 @@ The server serves this runtime directory at `/scene-assets/`. The browser loads 
 
 When no licensed pack is installed, or a required image fails to load, the included generated office and CC0 Kenney walking characters remain available. The seated/reading/hand animations described below require the optional pack.
 
+## Robots built from original character layers
+
+With the paid runtime pack imported, the optional robot builder uses the original Body_01, Eyes_03, Outfit_22_04 and Accessory_07_Bataclava_02 layers. It remaps skin to dark mechanical joints, the head covering to a light metal casing, clothing to slate armor and eyes/chest details to three restrained identity colors. Original silhouettes, alpha and action coordinates are preserved; the wider 927px body canvas is retained without trimming. This is a local modification of purchased art, not newly generated character artwork.
+
+The builder requires Pillow in your Python environment (`python3 -m pip install Pillow` if needed):
+
+```sh
+python3 scripts/build-native-robots.py --interiors /path/to/moderninteriors-win.zip
+```
+
+Use `--output` to match a custom runtime directory. Run it again after reimporting the base pack. It adds three PNGs and an optional `robots` manifest list under ignored `data/scene-assets`; purchased source and modified atlases must remain outside public Git/releases. No external character-generator executable is needed. Reload the page after building. Installations without these optional robot atlases keep the included generated design.
+
 ## Implemented scene behavior
 
 - A compact 576×432 native layout follows the author's scene composition: workstations and accessories form clusters, storage sits against walls, and the hallway takes only the space needed for circulation. A shared pixel scale keeps people, furniture and materials coherent.
@@ -27,12 +39,12 @@ When no licensed pack is installed, or a required image fails to load, the inclu
 - Human actors use the actual purchased idle, walk, seated and reading rows. The example layout uses three premade identities.
 - An online person rests seated at their workstation. Typing in their office composer triggers a keyboard action. This draft signal stays in that browser; it is not a claim of monitoring their other applications.
 - Online AI actors with reported `working`/`thinking` status use the keyboard at their office workstation. Unconnected actors remain inactive.
-- People reaching the archive hold/read an animated book from the purchased pack. Robots use their own generated document-reading frames, also available without the paid pack.
+- People and native-layer robots reaching the archive use the same original book-reading animation. The generated fallback robot has separate document-reading frames.
 - Meeting attendees use assigned seats with explicit facing. Furniture and arrival anchors share the same layout data, and the final approach reaches the exact seat rather than stopping on a nearby navigation tile. An actual new meeting message triggers a short speaking gesture; listeners remain seated. A message's author and timestamp drive this, not generated speech.
-- The purchased pack has no dedicated typing strip. Our animation retargets its seated human forearm pixels onto the keyboard. Robots now use dedicated generated seated keyboard frames, with bent knees and directional hands; their bodies are no longer assembled from sliced standing/walking poses. Human typing remains a composited interaction, not an additional vendor-provided strip.
+- The purchased pack has no dedicated typing strip. Our animation retargets the seated character's forearm pixels onto the keyboard, for both people and native-layer robots. Both use original seated body frames and share the same action renderer; only the forearm is retargeted. This is a composited keyboard motion, not an additional vendor-provided strip. The generated fallback robot keeps its own keyboard poses.
 - Scene pause stops both locomotion and action animation. Reduced-motion preference disables motion; accessible buttons and ordinary work panels remain available.
 
-The current archive view shows reading at the shelves; an elaborate cabinet-door/pick-up/put-back sequence is not implemented. Robots keep their own original design. We do not substitute human characters for AI identities.
+The current archive view shows reading at the shelves; an elaborate cabinet-door/pick-up/put-back sequence is not implemented. The optional AI characters have metal casing, dark joints and visor-like faces derived from original layers, retaining distinct AI identities rather than using unmodified human avatars.
 
 ## Credits and licenses
 

@@ -3,6 +3,7 @@ import type { SceneAssets } from "./scene-assets";
 import { humanPose, type Interaction } from "./interaction";
 export default function ResidentAnimation({
   assets,
+  character,
   skin,
   activity,
   direction,
@@ -14,6 +15,7 @@ export default function ResidentAnimation({
   speakingUntil = 0,
 }: {
   assets: SceneAssets;
+  character?: string;
   skin: number;
   activity: Interaction;
   direction: number;
@@ -30,7 +32,9 @@ export default function ResidentAnimation({
     const ctx = canvas.current!.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
     const sheet =
-      assets.images[assets.characters[skin % assets.characters.length]];
+      assets.images[
+        character ?? assets.characters[skin % assets.characters.length]
+      ];
     let raf = 0,
       last = 0,
       lastPose = -1;
@@ -109,6 +113,7 @@ export default function ResidentAnimation({
     };
   }, [
     assets,
+    character,
     skin,
     activity,
     direction,

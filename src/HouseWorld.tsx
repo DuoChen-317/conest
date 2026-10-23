@@ -64,6 +64,26 @@ export function SceneSprite({
   speakingUntil?: number;
 }) {
   const assets = useSceneAssets();
+  const nativeRobot =
+    robot && assets?.robots.length
+      ? assets.robots[skin % assets.robots.length]
+      : undefined;
+  if (assets && (!robot || nativeRobot))
+    return (
+      <ResidentAnimation
+        assets={assets}
+        character={nativeRobot}
+        skin={skin}
+        activity={activity}
+        direction={direction}
+        walkFrame={frame}
+        size={size}
+        walking={walking}
+        paused={paused}
+        reduced={reduced}
+        speakingUntil={speakingUntil}
+      />
+    );
   if (robot)
     return (
       <RobotSprite
@@ -78,21 +98,6 @@ export function SceneSprite({
           reduced,
           speakingUntil,
         }}
-      />
-    );
-  if (assets)
-    return (
-      <ResidentAnimation
-        assets={assets}
-        skin={skin}
-        activity={activity}
-        direction={direction}
-        walkFrame={frame}
-        size={size}
-        walking={walking}
-        paused={paused}
-        reduced={reduced}
-        speakingUntil={speakingUntil}
       />
     );
   return (
@@ -233,7 +238,12 @@ function Walker({
       }
       tick += elapsed;
       const pose =
-        Math.floor(tick / 120) % (resident.robot ? 4 : assets ? 6 : 3);
+        Math.floor(tick / 120) %
+        (assets && (!resident.robot || assets.robots.length)
+          ? 6
+          : resident.robot
+            ? 4
+            : 3);
       if (frameRef.current !== pose) {
         frameRef.current = pose;
         setFrame(pose);

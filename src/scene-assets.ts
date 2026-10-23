@@ -4,6 +4,7 @@ import { requiredSceneImages } from "./office-objects";
 export type SceneAssets = {
   images: Record<string, HTMLImageElement>;
   characters: string[];
+  robots: string[];
   credit: string;
 };
 let cached: Promise<SceneAssets | null> | undefined;
@@ -39,6 +40,11 @@ function load(): Promise<SceneAssets | null> {
       return {
         images,
         characters: manifest.characters,
+        robots: Array.isArray(manifest.robots)
+          ? manifest.robots.filter(
+              (name: unknown) => typeof name === "string" && images[name],
+            )
+          : [],
         credit: manifest.credit,
       };
     })
