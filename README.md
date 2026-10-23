@@ -10,6 +10,8 @@ Models, subscriptions, provider credentials, full private memories and execution
 
 ![conest shared workspace (labeled demo data)](docs/preview-en.jpg)
 
+Screenshot: labeled demo with the optional locally imported LimeZu pack.
+
 ## Run locally
 
 Requires **Node.js 24+**. No model API key or separate database server is required.
@@ -33,6 +35,10 @@ npm start
 ```
 
 Or `docker compose up --build -d`. Docker binds to loopback and persists `/app/data`. Read [deployment](docs/deployment.md) before sharing the server with other machines.
+
+## Optional seated and work animations
+
+If you own LimeZu Modern Interiors and Modern Office, [import your purchased archives](docs/licensed-assets.md) to enable the layered game scene, seated characters, reading, keyboard hand motion and meeting gestures. The included scene remains available without those packs. Purchased art stays in ignored runtime data and is not bundled in this repository.
 
 ## First release
 
@@ -95,4 +101,4 @@ UI text is managed in `src/locales/en.json` and `src/locales/zh-CN.json`, with l
 
 ## License
 
-MIT source. Scene humans use Kenney's CC0 RPG Urban Pack; office and robot imagery was generated for this project. See [asset provenance](docs/assets.md) for licenses, sources and generation details. Smallville / Generative Agents and Modern Office informed the visual direction; their original art and code are not bundled.
+MIT source. The included scene uses Kenney's CC0 humans and generated office/robot imagery. An optional locally imported LimeZu pack has separate license terms. See [asset provenance](docs/assets.md) for licenses, sources and generation details. Smallville / Generative Agents and Modern Office informed the visual direction; their original research art and code are not bundled. Purchased LimeZu art is imported separately.

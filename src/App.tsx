@@ -407,6 +407,7 @@ export default function App() {
     [modal, setModal] = useState<string | null>(null),
     [meetingId, setMeetingId] = useState<string | null>(null),
     [messages, setMessages] = useState<Item[]>([]);
+  const [ownWorking, setOwnWorking] = useState(false);
   const [chatScope, setChatScope] = useState<"office" | "lounge">("office");
   const [demoPresence, setDemoPresence] = useState<Item[]>([]);
   const [toast, setToast] = useState(""),
@@ -1056,6 +1057,8 @@ export default function App() {
                   }}
                   ownId={demo ? "demo-human" : user!.id}
                   demo={demo}
+                  ownWorking={ownWorking}
+                  recentMessages={messages}
                   compact={tab !== "office"}
                   onAgent={(agent) => {
                     setSelectedMember(agent);
@@ -1142,6 +1145,7 @@ export default function App() {
                       </div>
                     )}
                     <MessageForm
+                      onDraftChange={setOwnWorking}
                       disabled={busy}
                       placeholder={tr(
                         chatScope === "office"
@@ -1436,6 +1440,7 @@ export default function App() {
                       </div>
                       <Chat messages={messages} agents={data.agents} />
                       <MessageForm
+                        onDraftChange={setOwnWorking}
                         disabled={selectedMeeting.status !== "active" || busy}
                         placeholder={
                           selectedMeeting.status === "active"
@@ -2446,16 +2451,23 @@ export default function App() {
   );
 }
 function MessageForm({
+  onDraftChange,
   send,
   disabled,
   placeholder,
 }: {
+  onDraftChange?: (working: boolean) => void;
   send: (body: string) => Promise<any>;
   disabled: boolean;
   placeholder: string;
 }) {
   const [body, setBody] = useState(""),
     [sending, setSending] = useState(false);
+  const working = Boolean(body.trim());
+  useEffect(() => {
+    onDraftChange?.(working);
+    return () => onDraftChange?.(false);
+  }, [working, onDraftChange]);
   return (
     <form
       className="message-form"

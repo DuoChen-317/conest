@@ -19,3 +19,13 @@ Desktop is the primary experience. Fit, zoom, drag, expand, pause and keyboard-a
 Mobile prioritizes basic conversation, meetings and project files. It keeps existing navigation and readable stacked panels; a full game-style mobile experience is outside the current scope, per the user's request.
 
 Demo-only robot controls let visitors try workstation/meeting/archive movement without claiming a real AI connection. Real projects use persisted presence, authenticated APIs and external clients.
+
+## Licensed interaction revision
+
+The locally imported LimeZu art uses real tiled floors, individually layered office furniture, and separate character action rows. This replaces the single raster background on installations with purchased packs. Own-composer typing, reported AI work state, archive presence and actual meeting message timestamps choose work/read/listen/speak actions. Forearm retargeting supplies the keyboard motion absent from the vendor atlas. The generated/CC0 scene remains the public-repository fallback. See [runtime assets](licensed-assets.md).
+
+### Author-referenced composition
+
+The first licensed-art layout was rejected for being sparse and boxy. The replacement follows LimeZu's [complete Office scenes](https://limezu.itch.io/modernoffice): compact rooms, desk/monitor/keyboard/document clusters, wall-mounted equipment, adjacent storage and plants, and a short circulation route. The native map is now 576×432; making the building larger is not a design goal. White brick, blue-gray carpet, pale corridor flooring, white desks and green plants form the palette. A vertical conference table matches the available side-facing seated poses. The archive retains an aisle and a reading counter. Actor details open on selection instead of permanently covering the scene.
+
+Research also inspected [level-design](https://github.com/gamedev-skills/awesome-gamedev-agent-skills/tree/main/skills/disciplines/level-design) for movement metrics and reachable layouts, and [pixel-art](https://github.com/ervareza/agent-skill-pixel-art) for grid/scale consistency. The existing purchased art remains the visual source; no third-party generation scripts were executed.

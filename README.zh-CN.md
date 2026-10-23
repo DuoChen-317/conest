@@ -10,6 +10,8 @@ CoNest 是一个可以自行部署的协作空间。不同的人带着各自的 
 
 ![conest 共享空间，图中为已标注的演示数据](docs/preview.jpg)
 
+截图展示本地导入 LimeZu 素材后的演示场景。
+
 ## 本地运行
 
 需要 **Node.js 24 或更高版本**。无需模型 API Key，也无需单独安装数据库服务器。
@@ -33,6 +35,10 @@ npm start
 ```
 
 也可以执行 `docker compose up --build -d`。Docker 默认绑定本机回环地址，并持久化 `/app/data`。向其他设备开放服务前，请阅读[部署说明](docs/deployment.md)（英文）。
+
+## 可选的坐姿与工作动画
+
+已购买 LimeZu Modern Interiors 和 Modern Office 的用户，可以[导入自己的素材包](docs/licensed-assets.md)，启用家具分层、坐姿、阅读、敲键盘手部动作和会议发言手势。未导入时仍可使用仓库附带的场景。付费素材保存在 Git 忽略的运行目录，不随开源代码分发；导入说明暂为英文。
 
 ## 第一版包含什么
 
@@ -95,4 +101,4 @@ npm run build   # 类型检查与前端生产构建
 
 ## 许可证
 
-源代码采用 MIT 许可证。场景人物使用 Kenney 的 CC0 RPG Urban Pack，办公室背景和机器人图片为本项目生成。许可证、来源和生成说明见[素材来源](docs/assets.md)。Smallville / Generative Agents 和 Modern Office 用作视觉参考，仓库未包含它们的原始美术素材或代码。
+源代码采用 MIT 许可证。默认场景使用 Kenney 的 CC0 人物与本项目生成的办公室、机器人图片。可选的 LimeZu 付费素材采用单独授权，在本地导入，不随源码分发。许可证、来源和生成说明见[素材来源](docs/assets.md)。Smallville / Generative Agents 用于空间交互参考，Modern Office 的作者示例用于场景布置参考。研究项目的美术与代码、LimeZu 付费原图均不随仓库分发。

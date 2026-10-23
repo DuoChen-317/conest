@@ -375,5 +375,13 @@
   "让 {name} 回到工位": "Send {name} to their workstation",
   "让 {name} 前往会议桌": "Send {name} to the meeting table",
   "让 {name} 查阅资料柜": "Send {name} to the archive",
-  "正在加载办公室场景…": "Loading office scene…"
+  "正在加载办公室场景…": "Loading office scene…",
+  "暂时离开工位": "Away from their workstation",
+  "坐在工位休息": "Resting at their workstation",
+  "正在敲键盘": "Typing at the computer",
+  "正在翻阅资料": "Reading project documents",
+  "正在倾听讨论": "Listening to the discussion",
+  "正在发言": "Speaking",
+  "继续场景动画": "Resume scene animation",
+  "暂停场景动画": "Pause scene animation"
 }

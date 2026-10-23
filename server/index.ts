@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import { createApp } from "./app.ts";
 import express from "express";
 
@@ -16,6 +17,29 @@ const { app, store } = createApp({
   secureCookies: process.env.SECURE_COOKIES === "1",
   trustProxy: process.env.TRUST_PROXY === "1",
 });
+// Purchased art is an optional local runtime pack, never bundled in the repository.
+const sceneAssets = resolve(
+  process.env.SCENE_ASSET_DIR ??
+    resolve(process.env.DATA_DIR ?? "data", "scene-assets"),
+);
+app.get("/scene-assets/manifest.json", (_req, res) => {
+  const manifest = resolve(sceneAssets, "manifest.json");
+  res.setHeader("Cache-Control", "no-store");
+  res.json(
+    existsSync(manifest)
+      ? JSON.parse(readFileSync(manifest, "utf8"))
+      : { available: false },
+  );
+});
+app.use(
+  "/scene-assets",
+  express.static(sceneAssets, {
+    index: false,
+    dotfiles: "deny",
+    fallthrough: false,
+    maxAge: "1h",
+  }),
+);
 let vite:
   Awaited<ReturnType<(typeof import("vite"))["createServer"]>> | undefined;
 if (process.env.NODE_ENV === "production") {

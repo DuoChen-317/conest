@@ -2,7 +2,21 @@
 
 final result: passed
 
-## Current revision — interactive blue office, 2026-10-23
+## Latest revision — compact author-referenced office, 2026-10-23
+
+The user rejected the first sparse licensed layout and explicitly prioritized a harmonious, natural composition over size. The new native 576×432 map follows [LimeZu's complete Modern Office examples](https://limezu.itch.io/modernoffice): clustered desk/computer/document workstations, storage and equipment along walls, shallow white brick faces, narrow caps, blue-gray carpet and short circulation. The conference table now runs vertically so the actual side-facing seated poses face one another. The archive has wall shelving, an aisle and a reading counter. Actor details no longer cover the scene before selection.
+
+Evidence: `work/qa/compact-author-office-zh.png`, `work/qa/compact-author-office-en.png`, `work/qa/compact-author-office-expanded.png`. README screenshots show this optional local pack. All **114 furnishing images** loaded in the production scene. The importer selects **27 PNGs** from the user's purchased Modern Interiors v41.4 and Modern Office Revamped v1.2; their original licenses were read locally. Purchased images remain in ignored runtime data, outside MIT source distribution.
+
+Browser verification: Chinese and English default layouts; full-map fit/expand; local composer entering/leaving the `typing` action; meeting attendees walking through doors and taking assigned side-facing seats; a person and robot reaching the archive and displaying animated held books. The new collision tests cover every conference seat and archive position, table avoidance and shelving clearance. Earlier animation checks verified pause/resume holding both position and action frame, with reduced-motion static poses. No additional mobile game polish was attempted; ordinary work panels remain the mobile baseline.
+
+A fresh production tab had no browser errors or warnings. A previous isolated persisted project at `localhost:4178` verified an actual meeting message switching its author to `speaking`, while three listeners stayed `listening`; this action code is unchanged by the compact layout. No live language model was used. The earlier hot-reload-only effect-dependency warning is absent from the fresh production build.
+
+`npm test`: **22 passing**. `npm run build`: passed. Existing HTTP/MCP identity, permission, private-office and persistence checks remain green. Screenshots document the visual result; they do not imply the user's aesthetic approval.
+
+Boundaries: the vendor has no dedicated keyboard strip; human forearm and robot arm compositing provides that motion. Reading works; a full cabinet-door/retrieve/return sequence is future work. Composer activity stays local to its browser; reported AI status drives its office pose. An isolated assetless production server also verified that the generated/CC0 fallback loads without missing art or browser errors. No raw paid artwork is committed.
+
+## Previous revision — interactive blue office, 2026-10-23
 
 The user selected Stanford Smallville's spatial interaction idea, then explicitly refined the target to **one large connected office building**, individual offices, meeting and archive movement, Japanese pixel/older handheld aesthetics, and a blue office palette. Desktop is the priority; mobile needs basic functions only.
 

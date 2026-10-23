@@ -3561,3 +3561,30 @@ body {
   font-size: 13px;
   z-index: 200;
 }
+
+/* The licensed scene uses actual atlas art, independent furniture depth, and animated resident poses. */
+.office-furnishing {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+.office-furnishing img {
+  position: absolute;
+  max-width: none;
+  image-rendering: pixelated;
+}
+.licensed-sprite canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+.scene-credit {
+  font-size: 10px;
+  color: #667f98;
+  order: 4;
+  margin-left: auto;
+}
+.scene-credit a {
+  color: inherit;
+  text-decoration: underline;
+}

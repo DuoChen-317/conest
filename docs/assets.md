@@ -1,12 +1,16 @@
 # Asset provenance
 
-## Active office assets
+## Optional purchased runtime pack
+
+The local licensed scene uses purchased LimeZu Modern Interiors v41.4 and Modern Office Revamped v1.2. Our code/importer is committed; their images stay in ignored `data/scene-assets` and are served at runtime. The scene footer credits LimeZu. See [import instructions, action coverage and license boundaries](licensed-assets.md). The generated/CC0 art below remains the distributable fallback.
+
+## Included office assets
 
 - `public/assets/shared-house.png` — 1536×1024, original ImageGen floorplan, revised on 2026-10-23 into a cool blue-gray workplace. Three private offices, connected corridor, conference room, archive and reception. No people or text baked into the floorplan.
 - `public/assets/robot-walk.png` — 1448×1086 RGBA, original ImageGen directional robot atlas. Four directions × three walk poses. The generator did not follow the requested 1024×768 dimensions or equal baselines; `SceneSprite` explicitly crops and aligns each actual frame. This is the retained first generation, not the rejected subsequent edit.
 - `public/assets/kenney/urban.png` — unchanged packed 16×16 tile atlas from [Kenney RPG Urban Pack](https://kenney.nl/assets/rpg-urban-pack), **CC0**. Human directional walking frames are selected from the atlas. The original license is included at `public/assets/kenney/LICENSE.txt`. No account, purchase or runtime asset service is required.
 
-[Stanford's Generative Agents](https://arxiv.org/html/2304.03442v2) and [its repository](https://github.com/joonspk-research/generative_agents) informed the spatial interaction idea. Their artwork and code are not bundled. [LimeZu Modern Office](https://limezu.itch.io/modernoffice) was inspected as a style reference only; its paid assets are not redistributed. Kenney Roguelike Modern City was researched but is not shipped.
+[Stanford's Generative Agents](https://arxiv.org/html/2304.03442v2) and [its repository](https://github.com/joonspk-research/generative_agents) informed the spatial interaction idea. Their artwork and code are not bundled. [LimeZu Modern Office](https://limezu.itch.io/modernoffice) provides the optional runtime art and the reference for compact furniture clusters, wall storage, material transitions and seated workstations. Its paid source assets are not redistributed. Kenney Roguelike Modern City was researched but is not shipped.
 
 Generated output may not be exclusive. CoNest claims no ownership of third-party styles or research reference images. The legacy generated `office.png` and `residents.png` remain in the repository for historical provenance; the current scene uses the assets above.
 
