@@ -44,8 +44,27 @@ export default function ResidentAnimation({
       ctx.clearRect(0, 0, 64, 64);
       canvas.current!.dataset.pose = `${action}-${frame}`;
       const pose = humanPose(action, direction, frame);
+      // Source sit rows end at pixel 31; walk/idle/read use baseline 32.
+      // Keep the actual sole on the shared seat anchor through action changes.
+      const seated = pose.y === 128 || pose.y === 160;
+      ctx.save();
+      ctx.translate(0, seated ? 2 : 0);
       ctx.drawImage(sheet, pose.x, pose.y, 16, 32, 16, 0, 32, 64);
-      if (action === "typing") {
+      if (action === "typing" && direction === 2) {
+        // Retarget both original wrists onto the north workstation's keyboard.
+        for (const x of [2, 10])
+          ctx.drawImage(
+            sheet,
+            pose.x + x,
+            pose.y + 20,
+            3,
+            3,
+            16 + x * 2,
+            32 + (frame % 2) * 2,
+            6,
+            6,
+          );
+      } else if (action === "typing") {
         // Retarget the purchased sitter's actual raster forearm/hand, keeping torso and legs seated.
         // A narrow mask removes the original outer hand so there is no doubled limb.
         const left = direction === 0;
@@ -87,6 +106,7 @@ export default function ResidentAnimation({
         );
         ctx.restore();
       }
+      ctx.restore();
     };
     const tick = (now: number) => {
       if (last && !paused && !reduced)

@@ -23,6 +23,10 @@ test("directional walk, seated poses and reading use their own real atlas rows",
       y: 64,
     });
   }
+  // North-facing office bodies must retain the up-facing atlas group rather than
+  // falling back to the right-facing sitter when the desk orientation changes.
+  for (const action of ["typing", "seated"] as const)
+    assert.deepEqual(humanPose(action, 2, 2), { x: 128, y: 32 });
   assert.deepEqual(humanPose("reading", 2, 2), { x: 32, y: 224 });
   assert.deepEqual(humanPose("typing", 0, 2), { x: 128, y: 128 });
   assert.deepEqual(humanPose("listening", 3, 2), { x: 32, y: 128 });

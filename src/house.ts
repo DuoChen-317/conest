@@ -4,6 +4,9 @@ import {
   archiveSpots,
   receptionSeats,
   officeScale,
+  officeCabinets,
+  officeDesks,
+  readingTable,
 } from "./office-layout";
 import { officeObjectBounds } from "./office-objects";
 export type Room = "office" | "meeting" | "library" | "commons";
@@ -65,8 +68,8 @@ export function destination(
     };
   return { x: 49 + (index % 2) * 2, y: 59 + (Math.floor(index / 2) % 5) * 4 };
 }
-/** Licensed map is compact and uses one native 576×432 grid for art and navigation. */
-export const officeWorld = { width: 1152, height: 864 };
+/** Licensed map is compact and uses one native 576×528 grid for art and navigation. */
+export const officeWorld = { width: 1152, height: 1056 };
 export function officeDestination(
   room: Room,
   office: number,
@@ -82,7 +85,7 @@ export function officeDestination(
           ? archiveSpots[index % archiveSpots.length]
           : receptionSeats[index % receptionSeats.length];
   const { x, y } = point;
-  return { x: x / 5.76, y: y / 4.32 };
+  return { x: x / 5.76, y: y / 5.28 };
 }
 export function officeFacing(
   room: Room,
@@ -98,52 +101,66 @@ export function officeFacing(
         : room === "commons"
           ? receptionSeats[index % receptionSeats.length]
           : null;
-  return seat ? (seat.facing === "left" ? 0 : 3) : 1;
+  return seat ? (seat.facing === "up" ? 2 : seat.facing === "left" ? 0 : 3) : 1;
 }
 export function officeWalkable(x: number, y: number) {
   const px = x * 5.76,
-    py = y * 4.32;
+    py = y * 5.28;
   const inRect = (l: number, t: number, r: number, b: number) =>
     inside(px, py, l, t, r, b);
   const floor =
-    inRect(24, 200, 552, 228) ||
+    inRect(24, 232, 552, 276) ||
     inRect(24, 76, 190, 190) ||
     inRect(202, 76, 382, 190) ||
     inRect(394, 76, 550, 190) ||
-    inRect(104, 184, 128, 212) ||
-    inRect(280, 184, 304, 212) ||
-    inRect(460, 184, 484, 212) ||
-    inRect(48, 224, 72, 272) ||
-    inRect(280, 224, 304, 272) ||
-    inRect(440, 224, 464, 356) ||
-    inRect(24, 268, 222, 400) ||
-    inRect(234, 268, 350, 416) ||
-    inRect(362, 268, 550, 400);
+    inRect(104, 184, 128, 244) ||
+    inRect(280, 184, 304, 244) ||
+    inRect(460, 184, 484, 244) ||
+    inRect(48, 272, 72, 320) ||
+    inRect(280, 272, 304, 320) ||
+    inRect(440, 272, 464, 404) ||
+    inRect(24, 316, 222, 448) ||
+    inRect(234, 316, 350, 464) ||
+    inRect(362, 316, 550, 448);
   if (!floor) return false;
-  if (inRect(94, 276, 170, 404)) return false;
-  if (inRect(360, 236, 440, 304) || inRect(476, 236, 552, 304)) return false;
-  if (inRect(430, 352, 486, 382) || inRect(454, 376, 486, 408)) return false;
-  if (inRect(236, 264, 279, 317) || inRect(312, 264, 352, 321)) return false;
-  if (inRect(524, 346, 552, 400)) return false;
-  // Feet may approach the chair; they never pass through the desktop, sofa or cabinet.
-  for (const seats of officeSeats)
-    for (const seat of seats) {
-      const left = seat.facing === "left" ? seat.x - 55 : seat.x + 7;
-      if (inRect(left - 2, seat.y - 38, left + 50, seat.y - 10)) return false;
-      const leg = seat.facing === "left" ? left : left + 24;
-      if (inRect(leg - 2, seat.y - 14, leg + 26, seat.y + 14)) return false;
-    }
-  for (const left of [24, 204, 396]) {
-    if (inRect(left + 114, 136, left + 176, 186)) return false;
-    // Match the complete cabinet drawn at (left + 4, 148), with 2px clearance.
-    // The old 34px-wide box covered the third office's AI chair anchor.
-    const [, , width, height] = officeObjectBounds[168];
+  if (inRect(94, 324, 170, 448)) return false;
+  if (inRect(360, 284, 440, 352) || inRect(476, 284, 552, 352)) return false;
+  if (
+    inRect(
+      readingTable.x - 2,
+      readingTable.y - 2,
+      readingTable.x + readingTable.width + 2,
+      readingTable.y + readingTable.height + 2,
+    )
+  )
+    return false;
+  if (inRect(516, 398, 550, 431)) return false;
+  if (
+    inRect(236, 312, 279, 365) ||
+    inRect(325, 374, 350, 423) ||
+    inRect(312, 312, 352, 369)
+  )
+    return false;
+  if (inRect(236, 390, 287, 430)) return false;
+  // Collision is the actual horizontal desktop, not the old side-facing L return.
+  for (const desk of officeDesks)
     if (
       inRect(
-        left + 2,
-        146,
-        left + 6 + width * officeScale,
-        150 + height * officeScale,
+        desk.x - 2,
+        desk.y - 2,
+        desk.x + desk.width + 2,
+        desk.y + desk.height,
+      )
+    )
+      return false;
+  for (const cabinet of officeCabinets) {
+    const [, , width, height] = officeObjectBounds[cabinet.id];
+    if (
+      inRect(
+        cabinet.x - 2,
+        cabinet.y - 2,
+        cabinet.x + width * officeScale + 2,
+        cabinet.y + height * officeScale + 2,
       )
     )
       return false;

@@ -29,6 +29,10 @@ export function humanPose(
   const group = [12, 18, 6, 0][direction]; // left, down, up, right direction groups in the purchased atlas
   if (activity === "walking") return { x: (group + (frame % 6)) * 16, y: 64 };
   if (activity === "reading") return { x: (frame % 6) * 16, y: 224 };
+  // The pack has side sitting rows only. North workstations use its actual back-facing
+  // body behind the complete chair, as in the author's cubicle examples.
+  if (direction === 2 && ["typing", "seated"].includes(activity))
+    return { x: (6 + (frame % 6)) * 16, y: 32 };
   if (
     activity === "typing" ||
     activity === "seated" ||

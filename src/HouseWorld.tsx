@@ -134,6 +134,7 @@ type Resident = {
   activity: Interaction;
   speakingUntil: number;
   facing?: number;
+  self?: boolean;
 };
 function Walker({
   resident,
@@ -174,7 +175,7 @@ function Walker({
       if (node.current) {
         node.current.style.left = `${p.x}%`;
         node.current.style.top = `${p.y}%`;
-        node.current.style.zIndex = String(Math.round(p.y) + 5);
+        node.current.style.zIndex = String(Math.round(p.y) + (assets ? 0 : 5));
       }
     };
     if (reduced) {
@@ -201,8 +202,12 @@ function Walker({
       let remaining = elapsed * 0.22;
       while (next < route.length) {
         const target = route[next],
-          dx = (target.x - current.current.x) * (assets ? 11.52 : 15.36),
-          dy = (target.y - current.current.y) * (assets ? 8.64 : 10.24);
+          dx =
+            (target.x - current.current.x) *
+            (assets ? officeWorld.width / 100 : 15.36),
+          dy =
+            (target.y - current.current.y) *
+            (assets ? officeWorld.height / 100 : 10.24);
         const distance = Math.hypot(dx, dy);
         if (distance <= remaining || distance < 0.1) {
           place(target);
@@ -266,16 +271,17 @@ function Walker({
     <button
       ref={node}
       type="button"
-      className={`house-resident ${selected ? "selected" : ""} ${resident.status === "offline" ? "disconnected" : ""}`}
+      className={`house-resident ${selected ? "selected" : ""} ${speaking ? "speaking" : ""} ${resident.status === "offline" ? "disconnected" : ""}`}
       style={{
         left: `${current.current.x}%`,
         top: `${current.current.y}%`,
-        zIndex: Math.round(current.current.y) + 5,
+        zIndex: Math.round(current.current.y) + (assets ? 0 : 5),
         width: assets ? 96 : 64,
         height: assets ? 96 : 64,
       }}
       onClick={select}
       data-resident={resident.id}
+      data-self={resident.self || undefined}
       data-room={resident.room}
       data-walking={walking}
       data-action={walking ? "walking" : interaction}
@@ -302,7 +308,7 @@ function Walker({
         {resident.name}
         <i className={resident.status === "offline" ? "offline" : ""} />
       </span>
-      {selected && (
+      {(selected || speaking) && (
         <span className="house-thought">
           {walking
             ? tr("正在前往 {room}", { room: tr(roomNames[resident.room]) })
@@ -464,6 +470,7 @@ export default function HouseWorld({
           : 0;
         return {
           ...r,
+          self: r.id === ownId,
           room,
           status: !online ? "offline" : (r.status ?? "idle"),
           activity: interactionFor(
@@ -654,7 +661,7 @@ export default function HouseWorld({
           }
         >
           {assets ? (
-            <OfficeScene assets={assets} />
+            <OfficeScene assets={assets} paused={paused} reduced={reduced} />
           ) : (
             <img
               className="house-background"
@@ -673,8 +680,10 @@ export default function HouseWorld({
                 key={member.id}
                 className={`house-room office-${i} ${member.id === ownId ? "mine" : ""}`}
                 style={{
-                  left: `${[18.5, 50, 80.8][i]}%`,
-                  top: assets ? "43.5%" : "29%",
+                  left: assets
+                    ? `${[162, 338, 518][i] / 5.76}%`
+                    : `${[18.5, 50, 80.8][i]}%`,
+                  top: assets ? `${208 / 5.28}%` : "29%",
                 }}
                 onClick={() => {
                   setSelected(member.id);
@@ -691,15 +700,15 @@ export default function HouseWorld({
                 aria-label={tr("{name} 的办公室", { name: member.name })}
               >
                 <DoorOpen size={22} />
-                {tr("{name} 的办公室", { name: member.name })}
+                <span>{tr("{name} 的办公室", { name: member.name })}</span>
                 {member.id === ownId && <small>{tr("我的")}</small>}
               </button>
             ))}
           <button
             className="house-room"
             style={{
-              left: assets ? "23%" : "23.7%",
-              top: assets ? "94.4%" : "51.5%",
+              left: assets ? `${112 / 5.76}%` : "23.7%",
+              top: assets ? `${285 / 5.28}%` : "51.5%",
             }}
             onClick={() => onRoom("meeting")}
           >
@@ -709,8 +718,8 @@ export default function HouseWorld({
           <button
             className="house-room"
             style={{
-              left: assets ? "79%" : "77.6%",
-              top: assets ? "57%" : "51.5%",
+              left: assets ? `${508 / 5.76}%` : "77.6%",
+              top: assets ? `${285 / 5.28}%` : "51.5%",
             }}
             onClick={() => onRoom("library")}
           >
@@ -719,7 +728,10 @@ export default function HouseWorld({
           </button>
           <button
             className="house-room"
-            style={{ left: "50%", top: assets ? "95.5%" : "83%" }}
+            style={{
+              left: assets ? `${330 / 5.76}%` : "50%",
+              top: assets ? `${483 / 5.28}%` : "83%",
+            }}
             onClick={() => onRoom("commons")}
           >
             <HouseLine size={22} />
@@ -734,10 +746,10 @@ export default function HouseWorld({
                   className="house-object desk-object"
                   style={{
                     left: assets
-                      ? `${(officeSeats[i][d].x + (officeSeats[i][d].facing === "right" ? 31 : -31)) / 5.76}%`
+                      ? `${officeSeats[i][d].x / 5.76}%`
                       : `${[18.5, 50, 80.8][i] + (d ? 4.7 : -4.2)}%`,
                     top: assets
-                      ? `${(officeSeats[i][d].y - 18) / 4.32}%`
+                      ? `${(officeSeats[i][d].y - 30) / 5.28}%`
                       : "13%",
                   }}
                   aria-label={tr("使用 {name} 的工位", { name: member.name })}
@@ -762,7 +774,12 @@ export default function HouseWorld({
             className="house-object meeting-object"
             style={
               assets
-                ? { left: "22.9167%", top: "78.7%", width: 144, height: 240 }
+                ? {
+                    left: "22.9167%",
+                    top: `${384 / 5.28}%`,
+                    width: 144,
+                    height: 240,
+                  }
                 : undefined
             }
             aria-label={tr("在会议桌旁入座")}
@@ -774,7 +791,12 @@ export default function HouseWorld({
             className="house-object archive-object"
             style={
               assets
-                ? { left: "79.5%", top: "67%", width: 360, height: 100 }
+                ? {
+                    left: "79.5%",
+                    top: `${337 / 5.28}%`,
+                    width: 360,
+                    height: 100,
+                  }
                 : undefined
             }
             aria-label={tr("查阅项目档案")}
@@ -782,6 +804,21 @@ export default function HouseWorld({
           >
             <Books size={28} />
           </button>
+          {assets && (
+            <button
+              className="house-object reading-object"
+              style={{
+                left: `${452 / 5.76}%`,
+                top: `${398 / 5.28}%`,
+                width: 144,
+                height: 96,
+              }}
+              aria-label={tr("在资料桌旁查阅")}
+              onClick={() => onRoom("library")}
+            >
+              <Books size={28} />
+            </button>
+          )}
           {residents.map((resident: Resident) => (
             <Walker
               key={resident.id}

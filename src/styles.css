@@ -3579,11 +3579,17 @@ body {
 
 /* Small navigation plaques leave the wall-mounted equipment and the doorway silhouettes readable. */
 .house-world.licensed .house-room {
-  padding: 4px 7px;
+  padding: 3px 5px;
   gap: 4px;
   border-width: 1px;
-  border-radius: 3px;
-  box-shadow: none;
+  border-radius: 0;
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #dce6ee;
+  border-color: #75859b;
+  box-shadow: 0 2px 0 #46566e;
+  font-size: min(var(--house-label-size), 14px);
 }
 .house-world.licensed .house-room > svg {
   display: none;
@@ -3597,4 +3603,36 @@ body {
   border: 2px solid #424d64;
   background: #eff0f6;
   box-shadow: inset 0 -4px #b8bfd0;
+}
+.office-front-wall,
+.office-door {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+.house-world.licensed .house-resident .house-name {
+  opacity: 0;
+  pointer-events: none;
+}
+.house-world.licensed .house-resident:hover .house-name,
+.house-world.licensed .house-resident:focus-visible .house-name,
+.house-world.licensed .house-resident.selected .house-name,
+.house-world.licensed .house-resident.speaking .house-name,
+.house-world.licensed .house-resident[data-self="true"] .house-name {
+  opacity: 1;
+}
+
+.house-world.licensed .house-room > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.house-world.licensed .house-room small {
+  flex-shrink: 0;
+}
+
+/* North-facing chair backs occlude bodies; place names below their bases. */
+.house-world.licensed .house-resident[data-room="office"] .house-name {
+  top: calc(100% + 36px);
 }

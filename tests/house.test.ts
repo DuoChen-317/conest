@@ -125,8 +125,27 @@ test("licensed furniture leaves reachable workstations and an archive aisle with
   );
   assert.equal(officeWalkable(78.5, 65), true, "the shelf aisle remains clear");
   assert.equal(
-    officeWalkable(413 / 5.76, 160 / 4.32),
+    officeWalkable(413 / 5.76, 160 / 5.28),
     false,
     "the cabinet beside Nova still blocks traversal through its real footprint",
   );
+});
+
+// Physical wall depth must stay reserved when furniture/doors are rearranged.
+test("full front walls block walking except at connected door passages", () => {
+  const at = (x: number, y: number) => officeWalkable(x / 5.76, y / 5.28);
+  for (const x of [70, 180, 240, 350, 420, 530])
+    assert.equal(at(x, 210), false, "the front wall has a solid footprint");
+  for (const x of [116, 292, 472]) {
+    assert.equal(at(x, 210), true, "doorways cross the whole wall depth");
+    assert.equal(
+      at(x, 250),
+      true,
+      "the corridor is clear outside every office",
+    );
+  }
+  assert.equal(at(450, 395), false, "reading table blocks its real footprint");
+  assert.equal(at(530, 410), false, "the loaded archive cart blocks traversal");
+  assert.equal(at(260, 410), false, "the complete sofa blocks traversal");
+  assert.equal(at(292, 434), true, "the reception entry axis stays clear");
 });

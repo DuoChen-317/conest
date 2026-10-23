@@ -52,6 +52,10 @@ export function robotPose(
   } else if (action === "speaking") {
     row = 4;
     column = dir === 0 ? 2 : 3;
+  } else if (dir === 2 && ["typing", "seated"].includes(action)) {
+    // North-facing workstation: keep the full rear silhouette behind the chair.
+    row = 0;
+    column = 2;
   } else if (["typing", "seated", "listening"].includes(action)) {
     row = 3;
     column =

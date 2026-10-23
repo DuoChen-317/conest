@@ -1,5 +1,11 @@
 /** Alpha bounds anchor complete original 32×48 singles; these are never image clipping rectangles. */
 export const officeObjectBounds: Record<number, number[]> = {
+  172: [1, 23, 30, 23],
+  163: [2, 26, 12, 10],
+  139: [2, 24, 13, 16],
+  130: [0, 34, 16, 14],
+  102: [0, 23, 16, 23],
+  248: [0, 16, 32, 19],
   98: [0, 10, 16, 28],
   99: [0, 20, 16, 18],
   103: [2, 21, 12, 23],
@@ -10,6 +16,7 @@ export const officeObjectBounds: Record<number, number[]> = {
   142: [0, 17, 15, 17],
   149: [0, 17, 15, 19],
   153: [4, 36, 12, 12],
+  154: [0, 33, 16, 15],
   165: [3, 35, 26, 13],
   168: [2, 16, 13, 22],
   170: [1, 23, 30, 23],
@@ -27,6 +34,8 @@ export const officeObjectBounds: Record<number, number[]> = {
 };
 
 export const requiredSceneImages = [
+  "door.png",
+  "cart.png",
   "office.png",
   "room.png",
   "library.png",

@@ -4,9 +4,12 @@ import type { SceneAssets } from "./scene-assets";
 import {
   officeSeats,
   meetingSeats,
-  receptionSeats,
-  deskParts,
   officeScale as UNIT,
+  officeClusters,
+  officeCabinets,
+  readingTable,
+  frontWalls,
+  officeDoors,
   type Seat,
 } from "./office-layout";
 
@@ -40,114 +43,149 @@ function object(
     y: y - sy * scale,
     w: 32 * scale,
     h: 48 * scale,
-    depth: depth || Math.round((y + sh * scale) / 4.32),
+    depth: depth || Math.round((y + sh * scale) / 5.28),
     flip,
   });
 }
 function chair(seat: Seat) {
-  object(
-    seat.facing === "right" ? 104 : 103,
-    seat.x - 9,
-    seat.y - 34.5,
-    UNIT,
-    seat.y / 4.32 + 1,
-  );
+  if (seat.facing === "up") {
+    // Full rear chair covers the lower body; its contact point is below the actor's feet.
+    object(102, seat.x - 12, seat.y - 18.5, UNIT, (seat.y + 16) / 5.28 + 1);
+  } else {
+    object(
+      seat.facing === "right" ? 104 : 103,
+      seat.x - 9,
+      seat.y - 34.5,
+      UNIT,
+      seat.y / 5.28 + 1,
+    );
+  }
 }
-function shelf(x: number, y: number, wide = false) {
+function shelf(
+  x: number,
+  y: number,
+  wide = false,
+  metal = false,
+  medium = false,
+) {
   // The narrow cabinet is the complete neighboring single, not one cut-off column of the wide cabinet.
   props.push({
     file: "library.png",
     x,
     y,
-    w: (wide ? 48 : 16) * UNIT,
+    w: (wide ? 48 : medium ? 32 : 16) * UNIT,
     h: 48 * UNIT,
-    sx: wide ? 0 : 48,
-    sy: 208,
-    sw: wide ? 48 : 16,
+    sx: wide ? 0 : medium ? 64 : 48,
+    sy: metal ? 256 : 208,
+    sw: wide ? 48 : medium ? 32 : 16,
     sh: 48,
-    depth: (y + 42 * UNIT) / 4.32 + 3,
+    depth: (y + 42 * UNIT) / 5.28 + 3,
   });
 }
 function mountedAircon(x: number, capY: number) {
   object(165, x, capY + 3.5, UNIT, 7);
 }
-function workstation(seat: Seat) {
-  const mirror = seat.facing === "left",
-    depth = seat.y / 4.32;
+function workstation(seat: Seat, display = 130, paper = 153) {
+  const x = seat.x - 24,
+    y = seat.y - 44;
+  object(248, x, y);
+  // Original front-facing monitor/laptop, not a rotated side-view sprite.
+  object(
+    display,
+    x + 13,
+    y - (display === 139 ? 4 : 9),
+    UNIT,
+    (y + 25) / 5.28 + 1,
+  );
+  if (display !== 139) object(124, x + 11, y + 19, UNIT, (y + 29) / 5.28 + 1);
+  object(
+    paper,
+    x + (paper === 154 ? 24 : 29),
+    y + (paper === 154 ? 5 : 7),
+    UNIT,
+    (y + 30) / 5.28 + 1,
+  );
+  object(242, x + 2, y + 12, UNIT, (y + 29) / 5.28 + 1);
   chair(seat);
-  // Top with an open return + the matching lower module, joined at the native 16px seam.
-  for (const part of deskParts(seat))
-    object(part.id, part.x, part.y, UNIT, depth + 3, part.flip);
-  const onDesk = (id: number, dx: number, dy: number) => {
-    const width = source[id][2] * UNIT;
-    object(
-      id,
-      mirror ? seat.x - dx - width : seat.x + dx,
-      seat.y + dy,
-      UNIT,
-      depth + 4,
-      mirror,
-    );
-  };
-  onDesk(129, 25, -53.5);
-  onDesk(124, 9, -24);
-  onDesk(242, 38, -25);
-  onDesk(153, 34, -10);
 }
 for (let i = 0; i < 3; i++) {
-  const left = [24, 204, 396][i];
-  shelf(left + 5, 27);
+  const { left, plant, board } = officeClusters[i];
+  shelf(left + 5, 27, false, i === 1, i === 2);
   mountedAircon(left + 28, 16);
-  object(i === 1 ? 171 : 170, left + 96, 25, UNIT, 15);
-  object(98, left + 135, 66);
-  for (const seat of officeSeats[i]) workstation(seat);
-  object(323, left + 126, 143);
-  object(168, left + 4, 148);
+  object(board, left + 96, 25, UNIT, 15);
+  object(98, plant, 134);
+  officeSeats[i].forEach((seat, j) =>
+    workstation(seat, j ? [130, 139, 130][i] : [130, 130, 139][i], 153),
+  );
+  if (i === 1) object(163, left + 72, 34);
 }
-// Connected 3×5 conference table: identical pixel scale on both axes, one continuous top and base.
-for (let row = 0; row < 5; row++)
-  for (let col = 0; col < 3; col++)
-    props.push({
-      file: "office.png",
-      x: 96 + col * 24,
-      y: 280 + row * 24,
-      w: 24,
-      h: 24,
-      sx: (6 + col) * 16,
-      sy: (row === 0 ? 4 : row === 4 ? 6 : 5) * 16,
-      sw: 16,
-      sh: 16,
-      depth: Math.round((304 + row * 24) / 4.32) + 2,
-    });
-for (const seat of meetingSeats) chair(seat);
+for (const cabinet of officeCabinets) object(cabinet.id, cabinet.x, cabinet.y);
+// Connected conference table: identical pixel scale on both axes, one continuous top and base.
+function table(x: number, y: number, rows: number) {
+  for (let row = 0; row < rows; row++)
+    for (let col = 0; col < 3; col++)
+      props.push({
+        file: "office.png",
+        x: x + col * 24,
+        y: y + row * 24,
+        w: 24,
+        h: 24,
+        sx: (6 + col) * 16,
+        sy: (row === 0 ? 4 : row === rows - 1 ? 6 : 5) * 16,
+        sw: 16,
+        sh: 16,
+        depth: Math.round((y + 24 + row * 24) / 5.28) + 2,
+      });
+}
+const sharedPropsStart = props.length;
+table(96, 276, 5);
+for (const seat of meetingSeats) chair({ ...seat, y: seat.y - 48 });
 mountedAircon(170, 228);
-object(171, 108, 237, UNIT, 58);
+object(171, 108, 237, UNIT, 272 / 5.28);
 object(98, 197, 273);
 // Tabletop items remain at the same scale as the workstations.
-object(153, 120, 306, UNIT, 78);
-object(242, 123, 354, UNIT, 90);
-// Full cabinet units flank the aisle. The reading counter also includes its return module.
+object(153, 120, 302, UNIT, 320 / 5.28 + 2);
+object(139, 124, 352, UNIT, 376 / 5.28 + 2);
+// Complete cabinet units flank the entry; a full table and loaded cart define the reading area.
 shelf(364, 237, true);
 shelf(480, 237, true);
-object(263, 434, 356, UNIT, 96);
-object(262, 458, 380, UNIT, 98);
-object(142, 458, 342, UNIT, 99);
-object(153, 438, 357, UNIT, 99);
-object(242, 462, 383, UNIT, 99);
+table(readingTable.x, readingTable.y - 48, 2);
+object(142, 462, 315, UNIT, 346 / 5.28 + 3);
+object(153, 426, 338, UNIT, 364 / 5.28 + 4);
+object(154, 455, 344, UNIT, 364 / 5.28 + 4);
+// One complete wheeled carrier frame, with source paper stacks placed in the basket.
+props.push({
+  file: "cart.png",
+  x: 507,
+  y: 335,
+  w: 48,
+  h: 48,
+  sx: 0,
+  sy: 0,
+  sw: 32,
+  sh: 32,
+  depth: 383 / 5.28 + 1,
+});
+object(154, 520, 345, UNIT, 383 / 5.28 + 2);
 object(99, 366, 381);
-object(173, 528, 350);
 // Whole coffee/printer prefabs retain their tabletop, equipment and legs together.
 object(320, 238, 266);
+object(173, 327, 328);
 object(175, 315, 266);
-for (const seat of receptionSeats) chair(seat);
-object(99, 238, 381);
+object(200, 238, 344);
 object(99, 326, 381);
+
+for (const prop of props.slice(sharedPropsStart)) {
+  prop.y += 48;
+  if (prop.depth) prop.depth += 48 / 5.28;
+}
 
 function Base({ assets }: { assets: SceneAssets }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const ctx = ref.current!.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
     const atlas = assets.images["room.png"];
     const floor = (
       x: number,
@@ -171,21 +209,21 @@ function Base({ assets }: { assets: SceneAssets }) {
       }
       ctx.restore();
     };
-    ctx.clearRect(0, 0, 576, 432);
+    ctx.clearRect(0, 0, 576, 528);
     ctx.fillStyle = "#c6d2dd";
-    ctx.fillRect(0, 0, 576, 432);
+    ctx.fillRect(0, 0, 576, 528);
     ctx.fillStyle = "#a6b5c5";
-    ctx.fillRect(22, 24, 544, 400);
-    floor(24, 24, 528, 392, 11, 5);
+    ctx.fillRect(22, 24, 544, 504);
+    floor(24, 24, 528, 488, 11, 5);
     for (const [x, w] of [
       [24, 168],
       [200, 184],
       [392, 160],
     ])
       floor(x, 72, w, 120, 12, 7, true);
-    floor(24, 236, 200, 172, 12, 7, true);
-    floor(360, 236, 192, 172, 12, 7, true);
-    floor(232, 236, 120, 180, 14, 5);
+    floor(24, 284, 200, 172, 12, 7, true);
+    floor(360, 284, 192, 172, 12, 7, true);
+    floor(232, 284, 120, 180, 14, 5);
     const wallFace = (x: number, y: number, w: number, h: number) => {
       floor(x, y, w, h, 5, 11);
       ctx.fillStyle = "#61748d";
@@ -201,10 +239,10 @@ function Base({ assets }: { assets: SceneAssets }) {
       [304, 136],
       [464, 88],
     ])
-      wallFace(x, 236, w, 36);
+      wallFace(x, 284, w, 36);
     // Taller archive wall accommodates the complete tall cabinets, with their bases at the floor.
-    wallFace(360, 236, 80, 60);
-    wallFace(464, 236, 88, 60);
+    wallFace(360, 284, 80, 60);
+    wallFace(464, 284, 88, 60);
     const wall = (x: number, y: number, w: number, h = 8) => {
       ctx.fillStyle = "#424d64";
       ctx.fillRect(x, y, w, h);
@@ -215,38 +253,27 @@ function Base({ assets }: { assets: SceneAssets }) {
       else ctx.fillRect(x + w - 3, y + 1, 2, h - 2);
     };
     wall(16, 16, 544);
-    wall(16, 24, 8, 392);
-    wall(552, 24, 8, 392);
-    wall(192, 24, 8, 176);
-    wall(384, 24, 8, 176);
-    for (const [x, right] of [
-      [24, 104],
-      [128, 280],
-      [304, 460],
-      [484, 552],
-    ])
-      wall(x, 192, right - x);
+    wall(16, 24, 8, 480);
+    wall(552, 24, 8, 480);
+    wall(192, 24, 8, 160);
+    wall(384, 24, 8, 160);
     for (const [x, right] of [
       [24, 48],
       [72, 280],
       [304, 440],
       [464, 552],
     ])
-      wall(x, 228, right - x);
-    wall(224, 236, 8, 180);
-    wall(352, 236, 8, 180);
-    wall(24, 408, 208);
-    wall(352, 408, 200);
-    wall(232, 416, 48);
-    wall(304, 416, 48);
-    floor(280, 416, 24, 16, 14, 5);
+      wall(x, 276, right - x);
+    wall(224, 284, 8, 180);
+    wall(352, 284, 8, 180);
+    floor(280, 464, 24, 64, 14, 5);
   }, [assets]);
   return (
     <canvas
       ref={ref}
       className="house-background"
-      width={576}
-      height={432}
+      width={1152}
+      height={1056}
       aria-hidden="true"
     />
   );
@@ -261,7 +288,9 @@ function Furnishing({ p }: { p: Prop }) {
       ? { w: 256, h: 544 }
       : p.file === "office.png"
         ? { w: 256, h: 848 }
-        : { w: 32, h: 48 };
+        : p.file === "cart.png"
+          ? { w: 96, h: 32 }
+          : { w: 32, h: 48 };
   return (
     <span
       className="office-furnishing"
@@ -270,7 +299,7 @@ function Furnishing({ p }: { p: Prop }) {
         top: p.y * 2,
         width: p.w * 2,
         height: p.h * 2,
-        zIndex: p.depth ?? Math.round((p.y + p.h) / 4.32),
+        zIndex: Math.round(p.depth ?? (p.y + p.h) / 5.28),
         transform: p.flip ? "scaleX(-1)" : undefined,
       }}
     >
@@ -288,7 +317,153 @@ function Furnishing({ p }: { p: Prop }) {
     </span>
   );
 }
-export default function OfficeScene({ assets }: { assets: SceneAssets }) {
+function FrontWall({
+  assets,
+  wall,
+}: {
+  assets: SceneAssets;
+  wall: (typeof frontWalls)[number];
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const ctx = ref.current!.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    const sheet = assets.images["room.png"];
+    ctx.clearRect(0, 0, wall.width, 48);
+    // Full-height front wall: original brick courses, solid cap and floor skirting.
+    for (let y = 9; y < 48; y += 24)
+      for (let x = 0; x < wall.width; x += 24) {
+        const w = Math.min(24, wall.width - x),
+          h = Math.min(24, 48 - y);
+        ctx.drawImage(sheet, 80, 176, w / 1.5, h / 1.5, x, y, w, h);
+      }
+    for (let x = 0; x < wall.width; x += 12) {
+      const w = Math.min(12, wall.width - x);
+      ctx.drawImage(sheet, 16, 0, w / 1.5, 6, x, 0, w, 9);
+    }
+    ctx.fillStyle = "#61748d";
+    ctx.fillRect(0, 45, wall.width, 3);
+  }, [assets, wall]);
+  return (
+    <canvas
+      ref={ref}
+      width={wall.width * 2}
+      height={96}
+      className="office-front-wall"
+      style={{
+        left: wall.x * 2,
+        top: wall.y * 2,
+        width: wall.width * 2,
+        height: 96,
+        zIndex: Math.round((wall.y + 48) / 5.28) + 2,
+      }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function OfficeDoor({
+  assets,
+  door,
+  paused,
+  reduced,
+}: {
+  assets: SceneAssets;
+  door: (typeof officeDoors)[number];
+  paused: boolean;
+  reduced: boolean;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null),
+    frame = useRef(0),
+    phase = useRef(0);
+  useEffect(() => {
+    const node = ref.current!,
+      ctx = node.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    const floor = node.closest(".house-floor")!;
+    let raf = 0,
+      last = 0,
+      lastNear = 0,
+      lastPaint = -1;
+    const paint = () => {
+      const f = reduced ? 4 : frame.current;
+      if (f === lastPaint) return;
+      lastPaint = f;
+      ctx.clearRect(0, 0, 20, 40);
+      const room = assets.images["room.png"];
+      // Door jambs/lintel use the original matching wall-cap strips, outside the clear passage.
+      for (const x of [0, 18])
+        for (const y of [6, 22]) ctx.drawImage(room, 62, 0, 2, 16, x, y, 2, 16);
+      ctx.drawImage(room, 16, 0, 16, 4, 2, 2, 16, 4);
+      ctx.drawImage(room, 176, 94, 16, 2, 2, 38, 16, 2);
+      // The upper ten source pixels are transparent; every visible door pixel is retained.
+      ctx.drawImage(
+        assets.images["door.png"],
+        f * 16,
+        0,
+        16,
+        48,
+        2,
+        -10,
+        16,
+        48,
+      );
+      node.dataset.frame = String(f);
+    };
+    const tick = (now: number) => {
+      const near = Array.from(
+        floor.querySelectorAll<HTMLElement>(
+          "[data-resident][data-walking='true']",
+        ),
+      ).some(
+        (actor) =>
+          Math.abs(parseFloat(actor.style.left) * 5.76 - door.x) < 28 &&
+          Math.abs(parseFloat(actor.style.top) * 5.28 - door.y) < 64,
+      );
+      if (near) lastNear = now;
+      const target = near || now - lastNear < 550 ? 4 : 0;
+      phase.current += last ? Math.min(80, now - last) : 0;
+      last = now;
+      if (phase.current >= 70) {
+        frame.current += Math.sign(target - frame.current);
+        phase.current %= 70;
+      }
+      paint();
+      raf = requestAnimationFrame(tick);
+    };
+    paint();
+    if (!paused && !reduced) raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [assets, door, paused, reduced]);
+  return (
+    <canvas
+      ref={ref}
+      width={20}
+      height={40}
+      className="office-door"
+      data-door={door.id}
+      style={{
+        left: (door.x - 15) * 2,
+        top: (door.y - 60) * 2,
+        width: 60,
+        height: 120,
+        zIndex: Math.round(door.y / 5.28) + 7,
+      }}
+      aria-hidden="true"
+    />
+  );
+}
+
+export default function OfficeScene({
+  assets,
+  paused = false,
+  reduced = false,
+}: {
+  assets: SceneAssets;
+  paused?: boolean;
+  reduced?: boolean;
+}) {
   return (
     <>
       <Base assets={assets} />
@@ -305,11 +480,23 @@ export default function OfficeScene({ assets }: { assets: SceneAssets }) {
         <div
           key={x}
           className="office-mount-cap"
-          style={{ left: x * 2, top: 456, width: (r - x) * 2 }}
+          style={{ left: x * 2, top: 552, width: (r - x) * 2 }}
         />
       ))}
       {props.map((p, i) => (
         <Furnishing key={i} p={p} />
+      ))}
+      {frontWalls.map((wall, i) => (
+        <FrontWall key={i} assets={assets} wall={wall} />
+      ))}
+      {officeDoors.map((door) => (
+        <OfficeDoor
+          key={door.id}
+          assets={assets}
+          door={door}
+          paused={paused}
+          reduced={reduced}
+        />
       ))}
     </>
   );
