@@ -144,6 +144,13 @@ test("full front walls block walking except at connected door passages", () => {
       "the corridor is clear outside every office",
     );
   }
+  assert.equal(at(104, 210), false, "office door jamb is not a passage");
+  assert.equal(at(48, 300), false, "meeting door jamb is not a passage");
+  assert.equal(
+    at(60, 300),
+    true,
+    "the complete lower door's inner passage stays open",
+  );
   assert.equal(at(450, 395), false, "reading table blocks its real footprint");
   assert.equal(at(530, 410), false, "the loaded archive cart blocks traversal");
   assert.equal(at(260, 410), false, "the complete sofa blocks traversal");

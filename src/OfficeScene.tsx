@@ -134,7 +134,7 @@ function table(x: number, y: number, rows: number) {
         sy: (row === 0 ? 4 : row === rows - 1 ? 6 : 5) * 16,
         sw: 16,
         sh: 16,
-        depth: Math.round((y + 24 + row * 24) / 5.28) + 2,
+        depth: (y + rows * 24) / 5.28 + 2,
       });
 }
 const sharedPropsStart = props.length;
@@ -144,16 +144,19 @@ mountedAircon(170, 228);
 object(171, 108, 237, UNIT, 272 / 5.28);
 object(98, 197, 273);
 // Tabletop items remain at the same scale as the workstations.
-object(153, 120, 302, UNIT, 320 / 5.28 + 2);
-object(139, 124, 352, UNIT, 376 / 5.28 + 2);
+object(153, 120, 302, UNIT, 396 / 5.28 + 4);
+object(139, 124, 352, UNIT, 396 / 5.28 + 4);
 // Complete cabinet units flank the entry; a full table and loaded cart define the reading area.
 shelf(364, 237, true);
 shelf(480, 237, true);
 table(readingTable.x, readingTable.y - 48, 2);
-object(142, 462, 315, UNIT, 346 / 5.28 + 3);
-object(153, 426, 338, UNIT, 364 / 5.28 + 4);
-object(154, 455, 344, UNIT, 364 / 5.28 + 4);
-// One complete wheeled carrier frame, with source paper stacks placed in the basket.
+// The table's first 8 source rows are transparent. Put the actual lamp base
+// inside its visible surface, and keep all tabletop props above the complete table.
+const readingDepth = (readingTable.y + readingTable.height - 48) / 5.28 + 4;
+object(142, 460, 329, UNIT, readingDepth);
+object(154, 419, 341, UNIT, readingDepth);
+object(153, 442, 343, UNIT, readingDepth);
+// A full carrier frame with cargo behind its front basket, composed as one object.
 props.push({
   file: "cart.png",
   x: 507,
@@ -166,7 +169,6 @@ props.push({
   sh: 32,
   depth: 383 / 5.28 + 1,
 });
-object(154, 520, 345, UNIT, 383 / 5.28 + 2);
 object(99, 366, 381);
 // Whole coffee/printer prefabs retain their tabletop, equipment and legs together.
 object(320, 238, 266);
@@ -239,7 +241,7 @@ function Base({ assets }: { assets: SceneAssets }) {
       [304, 136],
       [464, 88],
     ])
-      wallFace(x, 284, w, 36);
+      wallFace(x, 284, w, 40);
     // Taller archive wall accommodates the complete tall cabinets, with their bases at the floor.
     wallFace(360, 284, 80, 60);
     wallFace(464, 284, 88, 60);
@@ -257,13 +259,7 @@ function Base({ assets }: { assets: SceneAssets }) {
     wall(552, 24, 8, 480);
     wall(192, 24, 8, 160);
     wall(384, 24, 8, 160);
-    for (const [x, right] of [
-      [24, 48],
-      [72, 280],
-      [304, 440],
-      [464, 552],
-    ])
-      wall(x, 276, right - x);
+    wall(24, 276, 528);
     wall(224, 284, 8, 180);
     wall(352, 284, 8, 180);
     floor(280, 464, 24, 64, 14, 5);
@@ -278,7 +274,30 @@ function Base({ assets }: { assets: SceneAssets }) {
     />
   );
 }
-function Furnishing({ p }: { p: Prop }) {
+function DocumentCart({ assets }: { assets: SceneAssets }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const ctx = ref.current!.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    const cart = assets.images["cart.png"];
+    ctx.clearRect(0, 0, 32, 32);
+    ctx.drawImage(cart, 0, 0, 32, 32, 0, 0, 32, 32);
+    // Full paper single: alpha occupies x=12..24,y=8..20 inside the basket.
+    ctx.drawImage(assets.images["office-153.png"], 8, -28);
+    // Original front mesh and wheels occlude the lower cargo, without losing the full cart.
+    ctx.drawImage(cart, 8, 14, 20, 18, 8, 14, 20, 18);
+  }, [assets]);
+  return (
+    <canvas
+      ref={ref}
+      width={32}
+      height={32}
+      style={{ width: 96, height: 96 }}
+    />
+  );
+}
+
+function Furnishing({ p, assets }: { p: Prop; assets: SceneAssets }) {
   const sx = p.sx ?? 0,
     sy = p.sy ?? 0,
     sw = p.sw ?? 32,
@@ -303,17 +322,21 @@ function Furnishing({ p }: { p: Prop }) {
         transform: p.flip ? "scaleX(-1)" : undefined,
       }}
     >
-      <img
-        src={`/scene-assets/${p.file}`}
-        alt=""
-        draggable={false}
-        style={{
-          width: (full.w / sw) * p.w * 2,
-          height: (full.h / sh) * p.h * 2,
-          left: (-sx / sw) * p.w * 2,
-          top: (-sy / sh) * p.h * 2,
-        }}
-      />
+      {p.file === "cart.png" ? (
+        <DocumentCart assets={assets} />
+      ) : (
+        <img
+          src={assets.images[p.file].src}
+          alt=""
+          draggable={false}
+          style={{
+            width: (full.w / sw) * p.w * 2,
+            height: (full.h / sh) * p.h * 2,
+            left: (-sx / sw) * p.w * 2,
+            top: (-sy / sh) * p.h * 2,
+          }}
+        />
+      )}
     </span>
   );
 }
@@ -331,17 +354,13 @@ function FrontWall({
     ctx.setTransform(2, 0, 0, 2, 0, 0);
     const sheet = assets.images["room.png"];
     ctx.clearRect(0, 0, wall.width, 48);
-    // Full-height front wall: original brick courses, solid cap and floor skirting.
-    for (let y = 9; y < 48; y += 24)
+    // Original brick courses and skirting; one shared cap spans walls and door headers.
+    for (let y = 8; y < 48; y += 24)
       for (let x = 0; x < wall.width; x += 24) {
         const w = Math.min(24, wall.width - x),
           h = Math.min(24, 48 - y);
         ctx.drawImage(sheet, 80, 176, w / 1.5, h / 1.5, x, y, w, h);
       }
-    for (let x = 0; x < wall.width; x += 12) {
-      const w = Math.min(12, wall.width - x);
-      ctx.drawImage(sheet, 16, 0, w / 1.5, 6, x, 0, w, 9);
-    }
     ctx.fillStyle = "#61748d";
     ctx.fillRect(0, 45, wall.width, 3);
   }, [assets, wall]);
@@ -381,6 +400,7 @@ function OfficeDoor({
     const node = ref.current!,
       ctx = node.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(3, 0, 0, 3, 0, 0);
     const floor = node.closest(".house-floor")!;
     let raf = 0,
       last = 0,
@@ -390,25 +410,18 @@ function OfficeDoor({
       const f = reduced ? 4 : frame.current;
       if (f === lastPaint) return;
       lastPaint = f;
-      ctx.clearRect(0, 0, 20, 40);
+      ctx.clearRect(0, 0, 20, 32);
       const room = assets.images["room.png"];
-      // Door jambs/lintel use the original matching wall-cap strips, outside the clear passage.
-      for (const x of [0, 18])
-        for (const y of [6, 22]) ctx.drawImage(room, 62, 0, 2, 16, x, y, 2, 16);
-      ctx.drawImage(room, 16, 0, 16, 4, 2, 2, 16, 4);
-      ctx.drawImage(room, 176, 94, 16, 2, 2, 38, 16, 2);
-      // The upper ten source pixels are transparent; every visible door pixel is retained.
-      ctx.drawImage(
-        assets.images["door.png"],
-        f * 16,
-        0,
-        16,
-        48,
-        2,
-        -10,
-        16,
-        48,
-      );
+      // The wall header begins below the continuous cap. The complete vendor door below
+      // already includes its frame; no second floating lintel or stretched jambs.
+      ctx.drawImage(room, 80, 176, 16, 11 - 16 / 3, 2, 16 / 3, 16, 11 - 16 / 3);
+      // Masonry fills the original frame's transparent outer margins.
+      for (const x of [2, 17])
+        for (let y = 11; y < 32; y += 16) {
+          const h = Math.min(16, 32 - y);
+          ctx.drawImage(room, 80, 176, 1, h, x, y, 1, h);
+        }
+      ctx.drawImage(assets.images["door.png"], f * 16, 0, 16, 32, 2, 0, 16, 32);
       node.dataset.frame = String(f);
     };
     const tick = (now: number) => {
@@ -439,15 +452,15 @@ function OfficeDoor({
   return (
     <canvas
       ref={ref}
-      width={20}
-      height={40}
+      width={60}
+      height={96}
       className="office-door"
       data-door={door.id}
       style={{
         left: (door.x - 15) * 2,
-        top: (door.y - 60) * 2,
+        top: (door.y - 48) * 2,
         width: 60,
-        height: 120,
+        height: 96,
         zIndex: Math.round(door.y / 5.28) + 7,
       }}
       aria-hidden="true"
@@ -472,19 +485,20 @@ export default function OfficeScene({
         style={{ left: 32, top: 32, width: 1088 }}
       />
       {[
-        [24, 48],
-        [72, 280],
-        [304, 440],
-        [464, 552],
-      ].map(([x, r]) => (
+        { x: 24, y: 184, width: 528 },
+        { x: 24, y: 276, width: 528 },
+        { x: 24, y: 456, width: 208 },
+        { x: 352, y: 456, width: 200 },
+        { x: 232, y: 464, width: 120 },
+      ].map((cap) => (
         <div
-          key={x}
+          key={`${cap.x}-${cap.y}`}
           className="office-mount-cap"
-          style={{ left: x * 2, top: 552, width: (r - x) * 2 }}
+          style={{ left: cap.x * 2, top: cap.y * 2, width: cap.width * 2 }}
         />
       ))}
       {props.map((p, i) => (
-        <Furnishing key={i} p={p} />
+        <Furnishing key={i} p={p} assets={assets} />
       ))}
       {frontWalls.map((wall, i) => (
         <FrontWall key={i} assets={assets} wall={wall} />

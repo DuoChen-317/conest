@@ -11,6 +11,7 @@ CoNest 使用 16px 原始素材，每个素材像素对应 3 个世界像素。�
 - Use feet or furniture bases as ground anchors. Side-facing seated rows end one source pixel above the standing baseline; compensate once in the renderer. North workstations use a real north-facing body behind a full rear chair. / 脚底和家具落地点作为锚点；侧向坐姿的底线差异由动作渲染器统一处理；朝上的工位采用原始背向人物与完整椅背遮挡。
 - Depth values written to CSS must be integers. Verify computed styles, not only source expressions. / CSS 层级必须是整数，检查浏览器实际计算值。
 - Render floors and walls at world resolution. Avoid an intermediate 1.5× raster, which creates alternating pixel widths before enlargement. / 地板墙体直接按世界分辨率绘制，避免先以 1.5 倍栅格化造成像素宽度不一致。
+- Keep the complete door animation frame and common baseline; use the original frame instead of adding a second lintel. Compose cart cargo behind its front mesh. Place a lamp by its base on the visible tabletop, accounting for transparent atlas padding. / 门动画保留完整帧和共同底线，不叠加第二套门框；货物放在车篮前框后方，灯座按可见桌面定位，计入图集透明边距。
 - Build wall caps, faces, corners, skirting and doorway openings together. Collision follows the solid footprint, not the image rectangle. / 墙顶、墙面、转角、踢脚线和门洞一起构建，碰撞范围按实体占地设置。
 - Check home, travelling, seated, reading, speaking and paused states in both languages. / 检查回工位、移动、落座、阅读、发言、暂停及双语状态。
 

@@ -66,9 +66,9 @@ export const officeDoors = [
   { id: "office-0", x: 116, y: 232 },
   { id: "office-1", x: 292, y: 232 },
   { id: "office-2", x: 472, y: 232 },
-  { id: "meeting", x: 60, y: 320 },
-  { id: "commons", x: 292, y: 320 },
-  { id: "library", x: 452, y: 320 },
+  { id: "meeting", x: 60, y: 324 },
+  { id: "commons", x: 292, y: 324 },
+  { id: "library", x: 452, y: 324 },
   { id: "entrance", x: 292, y: 512 },
 ];
 export const frontWalls = [

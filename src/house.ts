@@ -113,17 +113,17 @@ export function officeWalkable(x: number, y: number) {
     inRect(24, 76, 190, 190) ||
     inRect(202, 76, 382, 190) ||
     inRect(394, 76, 550, 190) ||
-    inRect(104, 184, 128, 244) ||
-    inRect(280, 184, 304, 244) ||
-    inRect(460, 184, 484, 244) ||
-    inRect(48, 272, 72, 320) ||
-    inRect(280, 272, 304, 320) ||
-    inRect(440, 272, 464, 404) ||
-    inRect(24, 316, 222, 448) ||
-    inRect(234, 316, 350, 464) ||
+    inRect(107, 184, 125, 244) ||
+    inRect(283, 184, 301, 244) ||
+    inRect(463, 184, 481, 244) ||
+    inRect(51, 272, 69, 324) ||
+    inRect(283, 272, 301, 324) ||
+    inRect(443, 272, 461, 404) ||
+    inRect(24, 324, 222, 448) ||
+    inRect(234, 324, 350, 464) ||
     inRect(362, 316, 550, 448);
   if (!floor) return false;
-  if (inRect(94, 324, 170, 448)) return false;
+  if (inRect(94, 334, 170, 448)) return false;
   if (inRect(360, 284, 440, 352) || inRect(476, 284, 552, 352)) return false;
   if (
     inRect(

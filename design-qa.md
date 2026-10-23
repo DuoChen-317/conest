@@ -1,5 +1,18 @@
 # Design QA
 
+## Door, cart and lamp detail corrections — 2026-10-23
+
+The user rejected the remaining detail alignment, specifically the extra slab above doors, the cart and the reading lamp. This revision replaces the clipped 128×48 glass strip plus improvised jambs with the complete original five-frame 80×32 office door strip (`animated_door_5`). Each frame uses the same bottom baseline; one continuous cap runs across the wall and door header (no separate white slab), and small masonry reveals fill the source frame's transparent side margins. Lower wall faces and door baselines now meet at the same floor line. Door collision excludes jambs; meeting navigation follows the visible tabletop edge rather than its 8 transparent top source rows, retaining the north aisle.
+
+The cart is one composed object: its complete source frame, a correctly sized document inside the basket, then the original front mesh/wheels over the cargo. The oversized paper stack laid over its outside is removed. The reading lamp base now rests inside the visible table surface, separated from papers. Tables use one ground depth for all connected modules; tabletop props sit above the whole table, so a later table tile cannot erase a lamp base. Source singles remain complete and all purchased images stay outside Git.
+
+A separate cache issue was found: PNGs are cached for one hour, so a changed door image could be combined with the new frame geometry. Both importers now add content hashes, and both the image loader and furnishing URLs use them. Decoded dimensions are checked against the manifest; the incompatible older glass strip falls back until reimported.
+
+Evidence: production-browser close-up `work/qa/detail-fix/reading-closeup.png`, full scene and updated bilingual README previews. Source contact sheets show the old glass strip changes its visible top from row 19 to row 2, while every selected replacement frame is bounded by (1,11)-(15,32). The original old renderer clipped its top at -10. The new door has no negative source placement. Browser checks confirm versioned furnishing URLs, 99 complete furnishings including one composed cart and no browser warnings/errors. Routing tests require exact meeting/reading/home arrival anchors with the narrower door passages. During a paused crossing, the meeting door remained at fully-open frame 4 and office 3 at frame 1 across separate snapshots; Atlas stayed at (11%, 58.6693%). Resume and completed arrivals use the existing door interaction logic. These checks support functional correctness and the visible corrections; they do not claim the user's aesthetic approval.
+
+`npm test`: **23 passing**, including jamb exclusion and exact room round trips. TypeScript/production build and Python syntax checks passed.
+
+
 ## Full walls, doors and author-referenced furnishing — 2026-10-23
 
 The user identified that doors were standing above thin wall-cap lines without a corresponding wall face. This revision reserves real depth for the front walls: original brick courses, continuous caps, skirting and connected glass door frames. The native scene grows to 576×528 so the walls can stand in front of the offices without covering the AI desks or taking over the corridor. Lower exterior walls follow the same construction. Navigation reserves the complete solid-wall footprint while retaining explicit door passages.

@@ -20,14 +20,31 @@ function load(): Promise<SceneAssets | null> {
         manifest.characters.length === 0
       )
         return null;
+      // This layout uses five complete 16×32 office-door frames. Older local packs
+      // contain an incompatible 128×48 glass strip and must be reimported.
+      if (
+        manifest.images?.["door.png"]?.width !== 80 ||
+        manifest.images?.["door.png"]?.height !== 32
+      )
+        return null;
       const images: SceneAssets["images"] = {};
       await Promise.all(
         Object.keys(manifest.images).map(async (name) => {
           if (!/^[a-z0-9-]+\.png$/.test(name))
             throw new Error("Invalid scene asset name");
           const image = new Image();
-          image.src = `/scene-assets/${name}`;
+          const descriptor = manifest.images[name];
+          const revision =
+            descriptor.hash ?? `${descriptor.width}x${descriptor.height}`;
+          image.src = `/scene-assets/${name}?v=${encodeURIComponent(revision)}`;
           await image.decode();
+          if (
+            image.naturalWidth !== descriptor.width ||
+            image.naturalHeight !== descriptor.height
+          )
+            throw new Error(
+              `Scene image dimensions do not match manifest: ${name}`,
+            );
           images[name] = image;
         }),
       );

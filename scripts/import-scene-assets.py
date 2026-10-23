@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Import a curated selection from locally purchased LimeZu packs. No third-party dependencies."""
-import argparse, json, struct, zipfile
+import argparse, hashlib, json, struct, zipfile
 from pathlib import Path
 
 p=argparse.ArgumentParser(description=__doc__)
@@ -13,7 +13,7 @@ items={
  'office.png':('office','Modern_Office_16x16.png'),
  'room.png':('office','1_Room_Builder_Office/Room_Builder_Office_16x16.png'),
  'library.png':('interiors','1_Interiors/16x16/Theme_Sorter/5_Classroom_and_library_16x16.png'),
- 'door.png':('interiors','3_Animated_objects/16x16/spritesheets/animated_door_glass_left.png'),
+ 'door.png':('interiors','3_Animated_objects/16x16/spritesheets/animated_door_5.png'),
  'cart.png':('interiors','3_Animated_objects/16x16/spritesheets/animated_shopping_cart_blue_empty_right.png'),
  'book.png':('interiors','2_Characters/Character_Generator/Books/16x16/Book_01.png'),
  'license-interiors.txt':('interiors','LICENSE.txt'),
@@ -32,7 +32,7 @@ try:
    if data[:8]!=b'\x89PNG\r\n\x1a\n': raise ValueError(f'Invalid PNG: {name}')
    w,h=struct.unpack('>II',data[16:24])
    if w>4096 or h>4096 or len(data)>4*1024*1024: raise ValueError(f'Unexpected image: {name}')
-   images[name]={'width':w,'height':h}
+   images[name]={'width':w,'height':h,'hash':hashlib.sha256(data).hexdigest()[:16]}
  a.output.mkdir(parents=True,exist_ok=True)
  for name,data in content.items(): (a.output/name).write_bytes(data)
  manifest={'version':1,'available':True,'credit':'LimeZu · Modern Interiors / Modern Office','images':images,'characters':['person-0.png','person-1.png','person-2.png']}

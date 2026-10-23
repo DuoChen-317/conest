@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build local robot variants from owned LimeZu character layers (requires Pillow)."""
 import argparse
+import hashlib
 import io
 import json
 import zipfile
@@ -65,7 +66,7 @@ def main():
         temporary = args.output / (name + ".tmp")
         result.save(temporary, format="PNG")
         temporary.replace(args.output / name)
-        manifest["images"][name] = {"width":result.width,"height":result.height}
+        manifest["images"][name] = {"width":result.width,"height":result.height,"hash":hashlib.sha256((args.output/name).read_bytes()).hexdigest()[:16]}
         names.append(name)
     manifest["robots"] = names
     temporary = args.output / "manifest.json.tmp"
