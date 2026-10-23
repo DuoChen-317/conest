@@ -7,7 +7,8 @@ The local licensed scene uses purchased LimeZu Modern Interiors v41.4 and Modern
 ## Included office assets
 
 - `public/assets/shared-house.png` — 1536×1024, original ImageGen floorplan, revised on 2026-10-23 into a cool blue-gray workplace. Three private offices, connected corridor, conference room, archive and reception. No people or text baked into the floorplan.
-- `public/assets/robot-walk.png` — 1448×1086 RGBA, original ImageGen directional robot atlas. Four directions × three walk poses. The generator did not follow the requested 1024×768 dimensions or equal baselines; `SceneSprite` explicitly crops and aligns each actual frame. This is the retained first generation, not the rejected subsequent edit.
+- `public/assets/robot-office-v2.png` — 1122×1402 RGBA, generated with the built-in ImageGen tool on 2026-10-23. Current matte slate/gray robot, with four-direction idle/walking, dedicated seated keyboard poses, reading and seated speech gestures. The accepted office screenshot was a style reference; purchased sprites are not bundled in this sheet. The generator produced uneven gutters, so `src/robot-sprites.ts` measures complete silhouettes rather than assuming equal cells. One scale and a shared feet anchor keep the character consistent across actions. The same renderer serves both the licensed scene and assetless fallback.
+- `public/assets/robot-walk.png` — 1448×1086 RGBA, legacy glossy robot atlas retained for provenance; no longer rendered.
 - `public/assets/kenney/urban.png` — unchanged packed 16×16 tile atlas from [Kenney RPG Urban Pack](https://kenney.nl/assets/rpg-urban-pack), **CC0**. Human directional walking frames are selected from the atlas. The original license is included at `public/assets/kenney/LICENSE.txt`. No account, purchase or runtime asset service is required.
 
 [Stanford's Generative Agents](https://arxiv.org/html/2304.03442v2) and [its repository](https://github.com/joonspk-research/generative_agents) informed the spatial interaction idea. Their artwork and code are not bundled. [LimeZu Modern Office](https://limezu.itch.io/modernoffice) provides the optional runtime art and the reference for compact furniture clusters, wall storage, material transitions and seated workstations. Its paid source assets are not redistributed. Kenney Roguelike Modern City was researched but is not shipped.
@@ -33,7 +34,25 @@ STYLE: crisp friendly Japanese JRPG pixel art / older handheld 3DS-era game tile
 No beds, kitchen, kitchenware, household artwork, woodgrain, cozy cottage decor, decorative text, letters, numerals, logos, watermark, or extra furniture in walking routes. One targeted style/material edit, keep all geometry invariant.
 ```
 
-## Retained robot generation prompt
+## Current robot generation prompt
+
+Mode: **built-in ImageGen**, transparent output, original generated alpha preserved. The first candidate remained too glossy and was rejected; this is the selected second prompt. No CLI/API fallback or programmatic art repainting was used. Source file is copied unchanged into `public/assets/robot-office-v2.png`; runtime canvas crops/positions complete frames with nearest-neighbor sampling. Robot documents are part of this generated sheet and do not require purchased book art.
+
+```text
+Use case: stylized-concept.
+Asset type: transparent low-resolution sprite atlas for CoNest office game.
+Input image is STYLE reference only: match its tiny muted pixel people and office furniture. Create a NEW ORIGINAL office helper robot design; do not draw the office. Robot should look at home beside those human characters.
+Critical STYLE: authentic tiny 16-bit RPG sprite, approximately 16 pixels wide by 28 pixels tall, each logical pixel enlarged into a hard square. Extremely simple flat limited palette: dusty slate blue #697889, gray ivory #c6c8cb, dark desaturated outline #414457, tiny muted teal eyes #7eb2b3. Head is only 9x8 logical pixels, torso 9x9, legs 4x6 each. Human-like slender proportions, head less than one third total height, practical squat rectangular head with two small square eyes in dark screen, simple rectangular torso and jointed arms. No antenna, no round headphone ears, no glossy white, no saturated royal blue, no smile symbol, no glowing lights, no shiny highlights, no gradients, no airbrush, no antialias, no 3D, no detailed illustration, no text, no shadow. Flat clustered pixel shapes like the reference human sprites. Every frame must show same character and proportions.
+Transparent canvas, 4 columns x 5 rows, 20 complete separate frames, evenly spaced generous gutters, no labels or gridlines. Each cell same size. All character feet on matching baseline.
+Row 1: LEFT idle profile, FRONT/down idle, BACK/up idle, RIGHT idle profile.
+Row 2: LEFT walk left foot forward, FRONT walk left foot forward, BACK walk left foot forward, RIGHT walk left foot forward.
+Row 3: LEFT walk right foot forward, FRONT walk right foot forward, BACK walk right foot forward, RIGHT walk right foot forward.
+Row 4: seated LEFT reaching both hands toward keyboard, seated RIGHT reaching both hands toward keyboard, same LEFT with hands slightly lowered, same RIGHT with hands slightly lowered. Knees bent and feet point toward desk, but do not draw chair, keyboard or desk.
+Row 5: FRONT standing holding gray open paper folder, FRONT standing turning folder page, LEFT seated with one hand raised to talk, RIGHT seated with one hand raised to talk.
+Design at a genuine very low pixel resolution, then enlarged nearest-neighbor. Strong consistent dark outlines and muted blue-gray surfaces. It must look like a tiny NPC sprite rather than a large robot illustration.
+```
+
+## Legacy robot generation prompt
 
 ```text
 Use case: stylized-concept. Asset type: production WALKING SPRITE SHEET, genuine transparent PNG, exactly 1024 pixels wide × 768 pixels high.

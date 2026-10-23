@@ -1,5 +1,12 @@
 # Design QA
 
+## Robot style revision — 2026-10-23
+
+The user accepted the office scene and requested matching robot art. The accepted room layout and purchased furniture remain unchanged. A new built-in ImageGen transparent atlas replaces the glossy saturated robot with a matte slate/ivory design and small teal eyes. Twenty complete generated poses cover four-direction idle/walking, left/right seated typing, front-facing document reading and seated speech gestures. One renderer and measured full-silhouette bounds serve the paid scene, fallback scene and small avatars; there is no longer a second set of irregular old-atlas bounds or sliced standing legs. Original generated alpha is retained. See [asset and final prompt](docs/assets.md).
+
+Browser checks: office keyboard motion, archive route and two document frames; pausing held `reading-3` across independent snapshots and resume restored animation. Meeting: Atlas reached its assigned inward-facing chair with `listening` and no walking state. Chinese/English default screenshots, expanded office and archive screenshots are saved under ignored `work/qa/robot-v2-*`; README previews are updated at the current native 1176×823 viewport. An isolated production server without any paid pack loaded the same robot and small avatar, with no browser errors/warnings. Build and all 22 existing tests passed. No raw paid artwork is included in this change. Earlier scene entries below document the prior iterations, including superseded robot compositing.
+
+
 Functional checks: passed. Visual revision: ready for user review.
 
 ## Latest revision — complete objects and physical placement, 2026-10-23

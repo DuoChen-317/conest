@@ -33,32 +33,13 @@ import { useSceneAssets } from "./scene-assets";
 import OfficeScene from "./OfficeScene";
 import { officeSeats } from "./office-layout";
 import ResidentAnimation from "./ResidentAnimation";
+import RobotSprite from "./RobotSprite";
 import {
   interactionFor,
   interactionNames,
   type Interaction,
 } from "./interaction";
 
-const robotBounds = [
-  [
-    [106, 44, 274, 355],
-    [80, 44, 282, 355],
-    [80, 44, 281, 355],
-    [88, 44, 257, 355],
-  ],
-  [
-    [106, 33, 274, 348],
-    [80, 32, 282, 349],
-    [80, 32, 281, 349],
-    [88, 33, 257, 349],
-  ],
-  [
-    [106, 14, 274, 317],
-    [80, 14, 282, 322],
-    [80, 14, 281, 322],
-    [88, 14, 257, 317],
-  ],
-];
 export function SceneSprite({
   robot = false,
   skin = 0,
@@ -83,11 +64,26 @@ export function SceneSprite({
   speakingUntil?: number;
 }) {
   const assets = useSceneAssets();
+  if (robot)
+    return (
+      <RobotSprite
+        {...{
+          skin,
+          activity,
+          direction,
+          walkFrame: frame,
+          size,
+          walking,
+          paused,
+          reduced,
+          speakingUntil,
+        }}
+      />
+    );
   if (assets)
     return (
       <ResidentAnimation
         assets={assets}
-        robot={robot}
         skin={skin}
         activity={activity}
         direction={direction}
@@ -99,12 +95,6 @@ export function SceneSprite({
         speakingUntil={speakingUntil}
       />
     );
-  const [left, , right, bottom] = robotBounds[frame % 3][direction];
-  const ratio = 0.16,
-    x = 32 - (direction * 362 + (left + right) / 2) * ratio,
-    y = 64 - (frame * 362 + bottom) * ratio;
-  const cellLeft = x + direction * 362 * ratio,
-    cellTop = y + frame * 362 * ratio;
   return (
     <span
       className="scene-sprite"
@@ -115,34 +105,12 @@ export function SceneSprite({
         className="scene-sprite-inner"
         style={{ transform: `scale(${size / 64})` }}
       >
-        {robot ? (
-          <span
-            className="robot-frame"
-            style={{
-              clipPath: `inset(${Math.max(0, cellTop)}px ${Math.max(0, 64 - cellLeft - 362 * ratio)}px ${Math.max(0, 64 - cellTop - 362 * ratio)}px ${Math.max(0, cellLeft)}px)`,
-            }}
-          >
-            <img
-              src="/assets/robot-walk.png"
-              alt=""
-              draggable={false}
-              style={{
-                width: 1448 * ratio,
-                height: 1086 * ratio,
-                left: x,
-                top: y,
-                filter: skin % 3 === 2 ? "hue-rotate(30deg)" : undefined,
-              }}
-            />
-          </span>
-        ) : (
-          <span
-            className="human-frame"
-            style={{
-              backgroundPosition: `${((23 + direction) / 26) * 100}% ${(((skin % 6) * 3 + frame) / 17) * 100}%`,
-            }}
-          />
-        )}
+        <span
+          className="human-frame"
+          style={{
+            backgroundPosition: `${((23 + direction) / 26) * 100}% ${(((skin % 6) * 3 + frame) / 17) * 100}%`,
+          }}
+        />
       </span>
     </span>
   );
@@ -264,7 +232,8 @@ function Walker({
         return;
       }
       tick += elapsed;
-      const pose = Math.floor(tick / 120) % (assets ? 6 : 3);
+      const pose =
+        Math.floor(tick / 120) % (resident.robot ? 4 : assets ? 6 : 3);
       if (frameRef.current !== pose) {
         frameRef.current = pose;
         setFrame(pose);
@@ -278,6 +247,7 @@ function Walker({
     resident.goal.y,
     resident.room,
     resident.facing,
+    resident.robot,
     paused,
     reduced,
     assets,

@@ -2959,18 +2959,6 @@ body {
   top: 0;
   transform-origin: top left;
 }
-.robot-frame {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-.robot-frame img {
-  position: absolute;
-  max-width: none;
-  image-rendering: pixelated;
-  user-select: none;
-  pointer-events: none;
-}
 .human-frame {
   position: absolute;
   inset: 0;
