@@ -89,6 +89,15 @@ test("CoNest: two independent clients collaborate with enforced identity, permis
   ).data;
   const endpoint = `/api/projects/${p.id}`;
   await t.test("authentication, invite and project isolation", async () => {
+    const invalidRegistration = await request(
+      "/api/auth/register",
+      "POST",
+      { username: "x", name: "", password: "short" },
+      undefined,
+      400,
+    );
+    assert.equal(invalidRegistration.data.code, "VALIDATION_ERROR");
+    assert.match(invalidRegistration.data.error, /username:/);
     await request(endpoint, "GET", undefined, undefined, 401);
     await request(endpoint, "GET", undefined, outsider.cookie, 404);
     await request(

@@ -49,3 +49,13 @@ Browser-tested: signup; create project; create meeting; send message; pause and 
 - [x] Core persisted flow tested in browser and API/MCP clients.
 - [x] Desktop/mobile layouts checked; viewport reset after testing.
 - [x] Preview, protocol boundaries and untested Docker execution documented honestly.
+
+## Chinese / English follow-up — 2026-10-23
+
+Both languages were checked in the welcome screen, workspace, meetings, files/editor, tasks, people/AI and connection guide. English text now wraps in narrow meeting controls and the mobile welcome headline retains its intended line breaks. The language selector is available before login and in the project header. Desktop was checked at 1280px; mobile welcome and workspace/meeting layouts were checked at 390px and 320px respectively. The 320px workspace had matching viewport/document widths, with no horizontal page overflow. Viewport overrides were reset after checking.
+
+Browser checks confirmed language persistence after reload, immediate translation of a real failed-login response, and preservation of registration fields and unsent message drafts when switching. An isolated real project on port 4174 verified that user-written Chinese/English project details and messages stay unchanged in an English interface. Test data is in ignored `work/qa/i18n-runtime`, separate from normal runtime data. No model was needed.
+
+`npm test`: 15 passing checks, including localization preference fallback, literal interpolation, translation coverage/placeholder parity, localized demo seeds and API errors, plus the existing HTTP/MCP integration scenarios. The validation response now includes an additive `VALIDATION_ERROR` code so the UI can translate it without parsing Zod's English messages. `npm run build`: passed.
+
+The README has linked English and Simplified Chinese editions, each with a corresponding current screenshot: `docs/preview-en.jpg` and `docs/preview.jpg`. Other technical documents remain in English and are labeled accordingly in the Chinese README.

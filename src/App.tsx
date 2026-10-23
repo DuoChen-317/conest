@@ -40,7 +40,36 @@ import {
   PlugsConnected,
   MagnifyingGlass,
 } from "@phosphor-icons/react";
-import { api, demoData, decodeText, time, type Item } from "./api";
+import { api, createDemoData, decodeText, time, type Item } from "./api";
+import {
+  tr,
+  useLocale,
+  setLocale,
+  getLocale,
+  localizeError,
+  type Locale,
+} from "./i18n";
+
+function LanguageSwitch() {
+  const locale = useLocale();
+  return (
+    <label className="language-switch">
+      <Globe size={16} aria-hidden="true" />
+      <select
+        aria-label={tr("语言")}
+        value={locale}
+        onChange={(event) => setLocale(event.target.value as Locale)}
+      >
+        <option value="zh-CN" lang="zh-CN">
+          中文
+        </option>
+        <option value="en" lang="en">
+          English
+        </option>
+      </select>
+    </label>
+  );
+}
 
 const tabs = [
   { id: "office", label: "共享空间", icon: HouseLine },
@@ -89,7 +118,7 @@ function Badge({ status }: { status: string }) {
   return (
     <span className={`badge ${status}`}>
       <span />
-      {statusLabels[status] ?? status}
+      {tr(statusLabels[status] ?? status)}
     </span>
   );
 }
@@ -186,7 +215,11 @@ function Modal({
       >
         <header>
           <h2>{title}</h2>
-          <button className="icon-button" aria-label="关闭" onClick={close}>
+          <button
+            className="icon-button"
+            aria-label={tr("关闭")}
+            onClick={close}
+          >
             <X size={20} />
           </button>
         </header>
@@ -227,6 +260,7 @@ function Auth({
   }
   return (
     <div className="auth-page">
+      <LanguageSwitch />
       <section className="auth-art">
         <a className="brand" href="/">
           co<span>nest</span>
@@ -234,40 +268,40 @@ function Auth({
         </a>
         <div className="auth-title">
           <span className="eyebrow">
-            <Leaf size={15} /> A little space. A lot of possibilities.
+            <Leaf size={15} /> {tr("A little space. A lot of possibilities.")}
           </span>
           <h1>
-            你的伙伴，
+            {tr("你的伙伴，")}
             <br />
-            你的 AI，
+            {tr("你的 AI，")}
             <br />
-            <span>同一个空间。</span>
+            <span>{tr("同一个空间。")}</span>
           </h1>
           <p>
-            把各自的想法带进来，
+            {tr("把各自的想法带进来，")}
             <br />
-            一起讨论，然后把项目做出来。
+            {tr("一起讨论，然后把项目做出来。")}
           </p>
         </div>
         <img
           src="/assets/office.png"
-          alt="俯视像素办公楼，包含工作室、会议室、资料室和公共客厅"
+          alt={tr("俯视像素办公楼，包含工作室、会议室、资料室和公共客厅")}
         />
         <span className="auth-caption">
-          A shared home for people & their agents.
+          {tr("A shared home for people & their agents.")}
         </span>
       </section>
       <section className="auth-form">
         <div>
-          <span className="eyebrow">Welcome to conest</span>
+          <span className="eyebrow">{tr("Welcome to conest")}</span>
           <h2>
             {invite
-              ? "有人邀请你一起工作"
+              ? tr("有人邀请你一起工作")
               : register
-                ? "给你的想法，找个落脚点。"
-                : "欢迎回到你的空间。"}
+                ? tr("给你的想法，找个落脚点。")
+                : tr("欢迎回到你的空间。")}
           </h2>
-          <p>连接自己的 AI，和伙伴一起推进项目。</p>
+          <p>{tr("连接自己的 AI，和伙伴一起推进项目。")}</p>
           <div className="segmented">
             <button
               className={register ? "selected" : ""}
@@ -276,7 +310,7 @@ function Auth({
                 setError("");
               }}
             >
-              创建账号
+              {tr("创建账号")}
             </button>
             <button
               className={!register ? "selected" : ""}
@@ -285,24 +319,24 @@ function Auth({
                 setError("");
               }}
             >
-              登录
+              {tr("登录")}
             </button>
           </div>
           <form onSubmit={submit}>
             {register && (
               <label>
-                怎么称呼你
+                {tr("怎么称呼你")}
                 <input
                   name="name"
                   required
                   maxLength={60}
                   autoComplete="name"
-                  placeholder="你的名字"
+                  placeholder={tr("你的名字")}
                 />
               </label>
             )}
             <label>
-              用户名
+              {tr("用户名")}
               <input
                 name="username"
                 required
@@ -310,11 +344,11 @@ function Auth({
                 minLength={3}
                 maxLength={32}
                 autoComplete="username"
-                placeholder="至少 3 位英文、数字或下划线"
+                placeholder={tr("至少 3 位英文、数字或下划线")}
               />
             </label>
             <label>
-              密码
+              {tr("密码")}
               <input
                 name="password"
                 type="password"
@@ -322,24 +356,29 @@ function Auth({
                 minLength={register ? 10 : 1}
                 maxLength={256}
                 autoComplete={register ? "new-password" : "current-password"}
-                placeholder={register ? "至少 10 个字符" : "输入密码"}
+                placeholder={register ? tr("至少 10 个字符") : tr("输入密码")}
               />
             </label>
             {error && (
               <p role="alert" className="form-error">
-                {error}
+                {localizeError(error)}
               </p>
             )}
             <button className="button primary full" disabled={busy}>
-              {busy ? "正在连接…" : register ? "创建我的空间" : "进入空间"}
+              {busy
+                ? tr("正在连接…")
+                : register
+                  ? tr("创建我的空间")
+                  : tr("进入空间")}
               <ArrowRight size={18} />
             </button>
           </form>
           <button className="demo-link" onClick={onDemo}>
-            先逛逛演示空间 <ArrowUpRight size={15} />
+            {tr("先逛逛演示空间")}
+            <ArrowUpRight size={15} />
           </button>
           <p className="auth-note">
-            <LockSimple size={14} /> 私人上下文留在你自己的 AI 工具里。
+            <LockSimple size={14} /> {tr("私人上下文留在你自己的 AI 工具里。")}
           </p>
         </div>
       </section>
@@ -347,6 +386,7 @@ function Auth({
   );
 }
 export default function App() {
+  const locale = useLocale();
   const [user, setUser] = useState<Item | null>(null),
     [ready, setReady] = useState(false),
     [demo, setDemo] = useState(
@@ -379,11 +419,11 @@ export default function App() {
   }, []);
   const refresh = useCallback(async () => {
     if (demo) {
-      setData(demoData);
+      setData(createDemoData(locale));
       return;
     }
     if (projectId) setData(await api(`/projects/${projectId}`));
-  }, [projectId, demo]);
+  }, [projectId, demo, locale]);
   const loadProjects = useCallback(async () => {
     const list = await api<Item[]>("/projects");
     setProjects(list);
@@ -405,7 +445,7 @@ export default function App() {
             const r = await api("/invites/accept", "POST", { token: invite });
             setProjectId(r.projectId);
             history.replaceState(null, "", "/");
-            notify("已加入项目");
+            notify(tr("已加入项目"));
           } catch (e) {
             setError((e as Error).message);
           }
@@ -416,9 +456,11 @@ export default function App() {
   }, [user, demo, invite, loadProjects]);
   useEffect(() => {
     if (demo) {
-      setData(demoData);
-      return;
+      setData(createDemoData(locale));
     }
+  }, [demo, locale]);
+  useEffect(() => {
+    if (demo) return;
     setData(null);
     if (!projectId) return;
     let stopped = false;
@@ -445,15 +487,21 @@ export default function App() {
               {
                 id: "dm1",
                 actor_name: "Alex",
+                actor_id: "demo-human",
                 actor_type: "human",
-                body: "我们先把第一版的范围定下来，让每个人自己的 AI 都能进来协作。",
+                body: tr(
+                  "我们先把第一版的范围定下来，让每个人自己的 AI 都能进来协作。",
+                ),
                 created_at: new Date().toISOString(),
               },
               {
                 id: "dm2",
                 actor_name: "Atlas",
+                actor_id: "a1",
                 actor_type: "agent",
-                body: "我建议先跑通会议、共享文件和任务交接。模型与私人记忆由各自的客户端管理。",
+                body: tr(
+                  "我建议先跑通会议、共享文件和任务交接。模型与私人记忆由各自的客户端管理。",
+                ),
                 created_at: new Date().toISOString(),
               },
             ]
@@ -479,7 +527,7 @@ export default function App() {
       stopped = true;
       clearInterval(timer);
     };
-  }, [projectId, meetingId, demo]);
+  }, [projectId, meetingId, demo, locale]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 4500);
@@ -491,7 +539,7 @@ export default function App() {
     skipRefresh = false,
   ) {
     if (demo) {
-      notify("这是演示空间。登录后可以创建自己的项目。");
+      notify(tr("这是演示空间。登录后可以创建自己的项目。"));
       return false;
     }
     setBusy(true);
@@ -519,7 +567,9 @@ export default function App() {
         versions: [{ version: f.version, actor_name: "Atlas" }],
       });
       setFileText(
-        "# CoNest\n\n让每个人带着自己的 AI，一起讨论、协作、完成项目。\n\n这是演示文件。",
+        tr(
+          "# CoNest\n\n让每个人带着自己的 AI，一起讨论、协作、完成项目。\n\n这是演示文件。",
+        ),
       );
       setFilePath(f.path);
       setFilePrivate(false);
@@ -549,7 +599,7 @@ export default function App() {
     const uploaded = e.target.files?.[0];
     if (!uploaded) return;
     if (uploaded.size > 8 * 1024 * 1024) {
-      setError("文件大小不能超过 8 MB");
+      setError(tr("文件大小不能超过 8 MB"));
       return;
     }
     const array = new Uint8Array(await uploaded.arrayBuffer());
@@ -566,7 +616,7 @@ export default function App() {
           baseVersion: 0,
           visibility: "shared",
         }),
-      "文件已上传",
+      tr("文件已上传"),
     );
     e.target.value = "";
   }
@@ -574,7 +624,7 @@ export default function App() {
     setMeetingId(id);
     setTab("meetings");
   };
-  if (!ready) return <div className="loading">正在打开 conest…</div>;
+  if (!ready) return <div className="loading">{tr("正在打开 conest…")}</div>;
   if (!user && !demo)
     return (
       <>
@@ -588,8 +638,8 @@ export default function App() {
         />
         {error && (
           <div className="toast error" role="alert">
-            {error}
-            <button onClick={() => setError("")} aria-label="关闭错误">
+            {localizeError(error)}
+            <button onClick={() => setError("")} aria-label={tr("关闭错误")}>
               <X />
             </button>
           </div>
@@ -615,12 +665,12 @@ export default function App() {
             <HouseLine size={19} />
           </span>
           <div>
-            <b>我们的工作空间</b>
-            <small>{demo ? "演示空间" : "一起把想法做出来"}</small>
+            <b>{tr("我们的工作空间")}</b>
+            <small>{demo ? tr("演示空间") : tr("一起把想法做出来")}</small>
           </div>
         </div>
-        <span className="sidebar-label">一起工作</span>
-        <nav aria-label="主导航">
+        <span className="sidebar-label">{tr("一起工作")}</span>
+        <nav aria-label={tr("主导航")}>
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -632,7 +682,7 @@ export default function App() {
               }}
             >
               <t.icon size={20} weight={tab === t.id ? "fill" : "regular"} />
-              {t.label}
+              {tr(t.label)}
               {t.id === "meetings" &&
                 data?.meetings.some((m: Item) => m.status === "active") && (
                   <span className="nav-dot" />
@@ -649,13 +699,13 @@ export default function App() {
           <div className="small-note">
             <Leaf size={20} />
             <p>
-              好想法，
+              {tr("好想法，")}
               <br />
-              值得一起完成。
+              {tr("值得一起完成。")}
             </p>
           </div>
           <button className="sidebar-help" onClick={() => setModal("help")}>
-            <Info size={18} /> 怎样接入我的 AI？
+            <Info size={18} /> {tr("怎样接入我的 AI？")}
             <ArrowUpRight size={14} />
           </button>
           <button
@@ -679,11 +729,11 @@ export default function App() {
             }}
           >
             <span className="user-initial">
-              {demo ? "访" : user?.name?.[0]}
+              {demo ? tr("访") : user?.name?.[0]}
             </span>
             <span>
-              {demo ? "访客模式" : user?.name}
-              <small>{demo ? "登录并创建空间" : "已登录"}</small>
+              {demo ? tr("访客模式") : user?.name}
+              <small>{demo ? tr("登录并创建空间") : tr("已登录")}</small>
             </span>
             <SignOut size={18} />
           </button>
@@ -692,10 +742,12 @@ export default function App() {
       <div className="main-shell">
         <header className="topbar">
           <span className="breadcrumb">
-            工作空间 <span>/</span>
-            <b>{data?.project.name ?? "开始一个新项目"}</b>
+            {tr("工作空间")}
+            <span>/</span>
+            <b>{data?.project.name ?? tr("开始一个新项目")}</b>
           </span>
           <div className="top-actions">
+            <LanguageSwitch />
             {demo ? (
               <button
                 className="button small"
@@ -704,13 +756,13 @@ export default function App() {
                   history.replaceState(null, "", "/");
                 }}
               >
-                创建我的空间
+                {tr("创建我的空间")}
                 <ArrowUpRight size={15} />
               </button>
             ) : (
               <>
                 <label className="project-select">
-                  <span className="sr-only">选择项目</span>
+                  <span className="sr-only">{tr("选择项目")}</span>
                   <select
                     value={projectId}
                     onChange={(e) => {
@@ -728,7 +780,7 @@ export default function App() {
                 </label>
                 <button
                   className="icon-button"
-                  aria-label="新建项目"
+                  aria-label={tr("新建项目")}
                   onClick={() => setModal("project")}
                 >
                   <Plus size={18} />
@@ -737,67 +789,70 @@ export default function App() {
             )}
             <span className="live-indicator">
               <span />
-              {demo ? "演示" : "实时同步"}
+              {demo ? tr("演示") : tr("实时同步")}
             </span>
           </div>
         </header>
         {!data && !projectId && !demo ? (
           <main className="onboard">
-            <img src="/assets/office.png" alt="等待伙伴加入的共享办公空间" />
+            <img
+              src="/assets/office.png"
+              alt={tr("等待伙伴加入的共享办公空间")}
+            />
             <div>
-              <span className="eyebrow">Make yourself at home</span>
-              <h1>从一个共同的项目开始。</h1>
+              <span className="eyebrow">{tr("Make yourself at home")}</span>
+              <h1>{tr("从一个共同的项目开始。")}</h1>
               <p>
-                创建项目，邀请伙伴，接入你们各自的 AI。
+                {tr("创建项目，邀请伙伴，接入你们各自的 AI。")}
                 <br />
-                这里会成为大家工作的共同空间。
+                {tr("这里会成为大家工作的共同空间。")}
               </p>
               <button
                 className="button primary"
                 onClick={() => setModal("project")}
               >
                 <Plus size={18} />
-                创建第一个项目
+                {tr("创建第一个项目")}
               </button>
               <button className="text-button" onClick={() => setModal("join")}>
-                我有邀请链接或邀请码
+                {tr("我有邀请链接或邀请码")}
               </button>
             </div>
           </main>
         ) : !data ? (
-          <main className="loading">正在同步项目…</main>
+          <main className="loading">{tr("正在同步项目…")}</main>
         ) : (
           <main className="content">
             <div className="page-heading">
               <div>
                 <div className="eyebrow">
                   {demo
-                    ? "A preview of life at conest"
-                    : "Your team, under one roof"}
+                    ? tr("A preview of life at conest")
+                    : tr("Your team, under one roof")}
                 </div>
                 <h1>
                   {tab === "office"
-                    ? "一起工作，也一起想事情。"
-                    : tabs.find((t) => t.id === tab)?.label}
+                    ? tr("一起工作，也一起想事情。")
+                    : tr(tabs.find((t) => t.id === tab)?.label ?? "")}
                 </h1>
                 <p>
                   {tab === "office"
                     ? data.project.description ||
-                      "带上你的 AI，和伙伴一起推进这个项目。"
+                      tr("带上你的 AI，和伙伴一起推进这个项目。")
                     : tab === "meetings"
-                      ? "让不同的背景和想法，在这里碰面。"
+                      ? tr("让不同的背景和想法，在这里碰面。")
                       : tab === "files"
-                        ? "同一个项目，始终有据可查的每一次修改。"
+                        ? tr("同一个项目，始终有据可查的每一次修改。")
                         : tab === "tasks"
-                          ? "从一个决定，到每个人手里的下一步。"
-                          : "人和 AI 各有身份，共同参与这个项目。"}
+                          ? tr("从一个决定，到每个人手里的下一步。")
+                          : tr("人和 AI 各有身份，共同参与这个项目。")}
                 </p>
               </div>
               <div className="heading-actions">
                 {tab === "office" && (
                   <button className="button" onClick={() => setModal("agent")}>
                     <PlugsConnected size={17} />
-                    接入 AI
+                    {tr("接入 AI")}
                   </button>
                 )}
                 {(tab === "office" || tab === "meetings") && (
@@ -806,14 +861,14 @@ export default function App() {
                     onClick={() => setModal("meeting")}
                   >
                     <Plus size={17} />
-                    发起会议
+                    {tr("发起会议")}
                   </button>
                 )}
                 {tab === "files" && (
                   <>
                     <label className="button file-upload">
                       <ArrowUpRight size={17} />
-                      上传文件
+                      {tr("上传文件")}
                       <input
                         type="file"
                         onChange={uploadFile}
@@ -832,7 +887,7 @@ export default function App() {
                       }}
                     >
                       <Plus size={17} />
-                      新建文档
+                      {tr("新建文档")}
                     </button>
                   </>
                 )}
@@ -842,7 +897,7 @@ export default function App() {
                     onClick={() => setModal("task")}
                   >
                     <Plus size={17} />
-                    创建任务
+                    {tr("创建任务")}
                   </button>
                 )}
                 {tab === "team" && (
@@ -852,7 +907,7 @@ export default function App() {
                       onClick={() => setModal("agent")}
                     >
                       <Robot size={17} />
-                      接入 AI
+                      {tr("接入 AI")}
                     </button>
                     <button
                       className="button primary"
@@ -868,7 +923,7 @@ export default function App() {
                       }
                     >
                       <Plus size={17} />
-                      邀请伙伴
+                      {tr("邀请伙伴")}
                     </button>
                   </>
                 )}
@@ -878,7 +933,9 @@ export default function App() {
               <div className="demo-banner">
                 <Info size={17} />
                 <span>
-                  这是演示空间。人物、消息与任务均为示例，未连接真实 AI。
+                  {tr(
+                    "这是演示空间。人物、消息与任务均为示例，未连接真实 AI。",
+                  )}
                 </span>
               </div>
             )}
@@ -889,21 +946,26 @@ export default function App() {
                     <header className="section-header">
                       <div>
                         <span className="tiny-square" />
-                        <h2>我们的共享空间</h2>
+                        <h2>{tr("我们的共享空间")}</h2>
                       </div>
                       <span className="muted">
-                        {data.members.length} 位伙伴 · {data.agents.length} 个
-                        AI
+                        {tr("{count} 位伙伴 · {agents} 个 AI", {
+                          count: data.members.length,
+                          agents: data.agents.length,
+                        })}
                       </span>
                     </header>
                     <div className="office-map">
-                      <img src="/assets/office.png" alt="俯视像素办公室地图" />
+                      <img
+                        src="/assets/office.png"
+                        alt={tr("俯视像素办公室地图")}
+                      />
                       <button
                         className="room-label room-studio"
                         onClick={() => setTab("team")}
                       >
                         <HouseLine size={14} />
-                        个人工作室
+                        {tr("个人工作室")}
                         <ArrowUpRight size={12} />
                       </button>
                       <button
@@ -915,14 +977,15 @@ export default function App() {
                         }
                       >
                         <ChatCircleDots size={14} />
-                        会议室{activeMeeting && <span className="room-live" />}
+                        {tr("会议室")}
+                        {activeMeeting && <span className="room-live" />}
                       </button>
                       <button
                         className="room-label room-library"
                         onClick={() => setTab("files")}
                       >
                         <FolderOpen size={14} />
-                        项目资料室
+                        {tr("项目资料室")}
                         <ArrowUpRight size={12} />
                       </button>
                       <button
@@ -930,7 +993,7 @@ export default function App() {
                         onClick={() => setTab("tasks")}
                       >
                         <Kanban size={14} />
-                        共同工作间
+                        {tr("共同工作间")}
                         <ArrowUpRight size={12} />
                       </button>
                       {data.members.slice(0, 3).map((m: Item, i: number) => (
@@ -939,7 +1002,9 @@ export default function App() {
                           className="map-resident map-human"
                           style={{ left: `${[13, 40, 72][i]}%`, top: "80%" }}
                           onClick={() => setTab("team")}
-                          aria-label={`查看伙伴 ${m.name}`}
+                          aria-label={tr("查看伙伴 {value0}", {
+                            value0: m.name,
+                          })}
                         >
                           <Avatar index={[0, 2, 4][i]} />
                           <span>{m.name}</span>
@@ -966,7 +1031,7 @@ export default function App() {
                               setSelectedMember(a);
                               setModal("resident");
                             }}
-                            aria-label={`查看 ${a.name}`}
+                            aria-label={tr("查看 {value0}", { value0: a.name })}
                           >
                             <Avatar index={[1, 3, 5, 1, 3, 5][i]} />
                             <span>
@@ -981,35 +1046,35 @@ export default function App() {
                         );
                       })}
                       <span className="map-footer">
-                        点房间或伙伴，看看正在发生什么
+                        {tr("点房间或伙伴，看看正在发生什么")}
                       </span>
                     </div>
                     <footer className="map-legend">
                       <span>
                         <i className="legend-dot green" />
-                        工作中
+                        {tr("工作中")}
                       </span>
                       <span>
                         <i className="legend-dot blue" />
-                        讨论中
+                        {tr("讨论中")}
                       </span>
                       <span>
                         <i className="legend-dot orange" />
-                        等待你
+                        {tr("等待你")}
                       </span>
                       <span className="map-caption">
-                        a place to build, together.
+                        {tr("a place to build, together.")}
                       </span>
                     </footer>
                   </section>
                   <section className="team-strip">
                     <div className="section-header">
-                      <h2>今天的伙伴</h2>
+                      <h2>{tr("今天的伙伴")}</h2>
                       <button
                         className="text-button"
                         onClick={() => setTab("team")}
                       >
-                        查看全部
+                        {tr("查看全部")}
                         <ArrowRight size={14} />
                       </button>
                     </div>
@@ -1024,10 +1089,12 @@ export default function App() {
                           <div>
                             <strong>{m.name}</strong>
                             <small>
-                              {m.role === "owner" ? "空间创建者" : "项目伙伴"}
+                              {m.role === "owner"
+                                ? tr("空间创建者")
+                                : tr("项目伙伴")}
                             </small>
                           </div>
-                          <span className="human-tag">人</span>
+                          <span className="human-tag">{tr("人")}</span>
                         </button>
                       ))}
                       {data.agents.slice(0, 3).map((a: Item, i: number) => (
@@ -1042,7 +1109,9 @@ export default function App() {
                           <Avatar index={[1, 3, 5][i]} />
                           <div>
                             <strong>{a.name}</strong>
-                            <small>{a.owner_name} 的 AI</small>
+                            <small>
+                              {tr("{name} 的 AI", { name: a.owner_name })}
+                            </small>
                           </div>
                           <Badge
                             status={
@@ -1061,7 +1130,7 @@ export default function App() {
                           onClick={() => setModal("agent")}
                         >
                           <Plus size={20} />
-                          给你的 AI 留个位置
+                          {tr("给你的 AI 留个位置")}
                         </button>
                       )}
                     </div>
@@ -1070,7 +1139,7 @@ export default function App() {
                 <aside className="office-rail">
                   <section className="meeting-preview">
                     <div className="section-header">
-                      <h2>会议室</h2>
+                      <h2>{tr("会议室")}</h2>
                       <ChatCircleDots size={19} />
                     </div>
                     {activeMeeting ? (
@@ -1078,19 +1147,24 @@ export default function App() {
                         <Badge status={activeMeeting.status} />
                         <h3>{activeMeeting.title}</h3>
                         <p>
-                          {activeMeeting.agenda || "打开会议，带上你的想法。"}
+                          {activeMeeting.agenda ||
+                            tr("打开会议，带上你的想法。")}
                         </p>
                         <div className="mini-avatars">
                           {data.agents.slice(0, 3).map((a: Item, i: number) => (
                             <Avatar key={a.id} index={[1, 3, 5][i]} small />
                           ))}
-                          <span>{activeMeeting.agent_count} 个 AI 受邀</span>
+                          <span>
+                            {tr("{count} 个 AI 受邀", {
+                              count: activeMeeting.agent_count,
+                            })}
+                          </span>
                         </div>
                         <button
                           className="button full"
                           onClick={() => enterMeeting(activeMeeting.id)}
                         >
-                          进入会议室
+                          {tr("进入会议室")}
                           <ArrowRight size={16} />
                         </button>
                       </>
@@ -1099,13 +1173,15 @@ export default function App() {
                         <div className="quiet-room">
                           <ChatCircleDots size={36} />
                         </div>
-                        <h3>桌子空着，想法随时来。</h3>
-                        <p>邀请伙伴和各自的 AI，一起讨论下一步。</p>
+                        <h3>{tr("桌子空着，想法随时来。")}</h3>
+                        <p>{tr("邀请伙伴和各自的 AI，一起讨论下一步。")}</p>
                         <button
                           className="button full"
                           onClick={() => setModal("meeting")}
                         >
-                          {data.meetings.length ? "发起会议" : "发起第一次会议"}
+                          {data.meetings.length
+                            ? tr("发起会议")
+                            : tr("发起第一次会议")}
                           <Plus size={16} />
                         </button>
                       </>
@@ -1113,7 +1189,7 @@ export default function App() {
                   </section>
                   <section className="activity-card">
                     <div className="section-header">
-                      <h2>空间动态</h2>
+                      <h2>{tr("空间动态")}</h2>
                       <Clock size={17} />
                     </div>
                     {data.activity.length ? (
@@ -1134,9 +1210,9 @@ export default function App() {
                                 <b>
                                   {e.payload.actorName ??
                                     e.payload.actor_name ??
-                                    "伙伴"}
+                                    tr("伙伴")}
                                 </b>{" "}
-                                {activityLabels[e.kind] ?? "更新了项目"}
+                                {tr(activityLabels[e.kind] ?? "更新了项目")}
                               </p>
                               <span>
                                 {e.payload.title ??
@@ -1151,16 +1227,16 @@ export default function App() {
                       </div>
                     ) : (
                       <p className="muted activity-placeholder">
-                        工作开始后，进展会出现在这里。
+                        {tr("工作开始后，进展会出现在这里。")}
                       </p>
                     )}
                   </section>
                   <div className="rail-note">
                     <Leaf size={19} />
                     <span>
-                      每个独立的想法，
+                      {tr("每个独立的想法，")}
                       <br />
-                      都可以在这里找到回应。
+                      {tr("都可以在这里找到回应。")}
                     </span>
                   </div>
                 </aside>
@@ -1170,7 +1246,8 @@ export default function App() {
               <div className="meeting-layout">
                 <section className="meeting-list">
                   <h2>
-                    项目会议 <span>{data.meetings.length}</span>
+                    {tr("项目会议")}
+                    <span>{data.meetings.length}</span>
                   </h2>
                   {data.meetings.length ? (
                     data.meetings.map((m: Item) => (
@@ -1181,18 +1258,19 @@ export default function App() {
                       >
                         <Badge status={m.status} />
                         <h3>{m.title}</h3>
-                        <p>{m.agenda || "没有补充议题"}</p>
+                        <p>{m.agenda || tr("没有补充议题")}</p>
                         <small>
-                          {m.agent_count} 个 AI 受邀 · {time(m.created_at)}
+                          {tr("{count} 个 AI 受邀", { count: m.agent_count })} ·{" "}
+                          {time(m.created_at)}
                         </small>
                       </button>
                     ))
                   ) : (
                     <Empty
                       icon={ChatCircleDots}
-                      title="第一张会议桌，等你入座。"
+                      title={tr("第一张会议桌，等你入座。")}
                     >
-                      创建会议，邀请人和 AI 一起讨论。
+                      {tr("创建会议，邀请人和 AI 一起讨论。")}
                     </Empty>
                   )}
                 </section>
@@ -1234,33 +1312,34 @@ export default function App() {
                                   <Pause size={15} />
                                 )}
                                 {selectedMeeting.status === "paused"
-                                  ? "继续"
-                                  : "暂停"}
+                                  ? tr("继续")
+                                  : tr("暂停")}
                               </button>
                               <button
                                 className="button small"
                                 onClick={() => setModal("endMeeting")}
                               >
                                 <Stop size={15} />
-                                结束
+                                {tr("结束")}
                               </button>
                             </div>
                           )}
                       </header>
                       <div className="meeting-context">
                         <UsersThree size={16} />
-                        项目成员共同参与 · 每个 AI 最多{" "}
-                        {selectedMeeting.max_turns} 次发言
+                        {tr("项目成员共同参与 · 每个 AI 最多 {count} 次发言", {
+                          count: selectedMeeting.max_turns,
+                        })}
                       </div>
                       <Chat messages={messages} agents={data.agents} />
                       <MessageForm
                         disabled={selectedMeeting.status !== "active" || busy}
                         placeholder={
                           selectedMeeting.status === "active"
-                            ? "分享你的想法，也可以 @你的 AI…"
+                            ? tr("分享你的想法，也可以 @你的 AI…")
                             : selectedMeeting.status === "paused"
-                              ? "会议已暂停"
-                              : "会议已结束"
+                              ? tr("会议已暂停")
+                              : tr("会议已结束")
                         }
                         send={async (body) => {
                           return action(async () => {
@@ -1282,14 +1361,14 @@ export default function App() {
                           onClick={() => setModal("decision")}
                         >
                           <Plus size={14} />
-                          记录待确认方案
+                          {tr("记录待确认方案")}
                         </button>
                         <button
                           className="text-button"
                           onClick={() => setModal("task")}
                         >
                           <Kanban size={14} />
-                          创建关联任务
+                          {tr("创建关联任务")}
                         </button>
                         <button
                           className="text-button"
@@ -1298,26 +1377,33 @@ export default function App() {
                             void action(
                               () =>
                                 api(`${endpoint}/messages`, "POST", {
-                                  body: "请受邀的 AI 整理本次会议：明确共识、保留分歧，并通过 propose_decision / propose_task 提交草案，等待人确认。",
+                                  body: tr(
+                                    "请受邀的 AI 整理本次会议：明确共识、保留分歧，并通过 propose_decision / propose_task 提交草案，等待人确认。",
+                                  ),
                                   meetingId,
                                 }),
-                              "已向会议发送整理请求；需要受邀 AI 客户端在线处理。",
+                              tr(
+                                "已向会议发送整理请求；需要受邀 AI 客户端在线处理。",
+                              ),
                             )
                           }
                         >
-                          请 AI 整理会议
+                          {tr("请 AI 整理会议")}
                         </button>
                       </div>
                     </>
                   ) : (
-                    <Empty icon={ChatCircleDots} title="选一场会议，加入讨论。">
-                      会议记录会一直保存在项目中。
+                    <Empty
+                      icon={ChatCircleDots}
+                      title={tr("选一场会议，加入讨论。")}
+                    >
+                      {tr("会议记录会一直保存在项目中。")}
                     </Empty>
                   )}
                 </section>
                 <section className="decision-panel">
-                  <h2>讨论留下的结果</h2>
-                  <p className="muted">AI 可以提议，由人确认。</p>
+                  <h2>{tr("讨论留下的结果")}</h2>
+                  <p className="muted">{tr("AI 可以提议，由人确认。")}</p>
                   {data.decisions
                     .filter(
                       (d: Item) => !meetingId || d.meeting_id === meetingId,
@@ -1326,7 +1412,9 @@ export default function App() {
                       <article className="decision" key={d.id}>
                         <Badge status={d.status} />
                         <p>{d.body}</p>
-                        <small>{d.actor_name} 提出</small>
+                        <small>
+                          {tr("{name} 提出", { name: d.actor_name })}
+                        </small>
                         {d.status === "proposed" &&
                           (isOwner ||
                             selectedMeeting?.creator_id === user?.id ||
@@ -1343,12 +1431,12 @@ export default function App() {
                                         "PATCH",
                                         { status: "confirmed" },
                                       ),
-                                    "方案已确认",
+                                    tr("方案已确认"),
                                   )
                                 }
                               >
                                 <Check size={14} />
-                                确认
+                                {tr("确认")}
                               </button>
                               <button
                                 className="text-button"
@@ -1363,7 +1451,7 @@ export default function App() {
                                   )
                                 }
                               >
-                                不采用
+                                {tr("不采用")}
                               </button>
                             </div>
                           )}
@@ -1373,7 +1461,7 @@ export default function App() {
                     (d: Item) => !meetingId || d.meeting_id === meetingId,
                   ).length === 0 && (
                     <p className="muted no-decisions">
-                      讨论中的决定和分歧，可以记录在这里。
+                      {tr("讨论中的决定和分歧，可以记录在这里。")}
                     </p>
                   )}
                 </section>
@@ -1383,13 +1471,14 @@ export default function App() {
               <section className="files-panel">
                 <div className="files-toolbar">
                   <h2>
-                    项目资料 <span>{data.files.length}</span>
+                    {tr("项目资料")}
+                    <span>{data.files.length}</span>
                   </h2>
                   <label className="search">
                     <MagnifyingGlass size={17} />
                     <input
-                      aria-label="搜索文件"
-                      placeholder="查找文件…"
+                      aria-label={tr("搜索文件")}
+                      placeholder={tr("查找文件…")}
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
@@ -1398,11 +1487,11 @@ export default function App() {
                 {data.files.length ? (
                   <div className="file-table">
                     <div className="file-row table-head">
-                      <span>文件名</span>
-                      <span>可见范围</span>
-                      <span>版本</span>
-                      <span>大小</span>
-                      <span>最近更新</span>
+                      <span>{tr("文件名")}</span>
+                      <span>{tr("可见范围")}</span>
+                      <span>{tr("版本")}</span>
+                      <span>{tr("大小")}</span>
+                      <span>{tr("最近更新")}</span>
                     </div>
                     {data.files
                       .filter((f: Item) =>
@@ -1422,12 +1511,12 @@ export default function App() {
                             {f.visibility === "private" ? (
                               <>
                                 <LockSimple size={14} />
-                                仅自己与自己的 AI
+                                {tr("仅自己与自己的 AI")}
                               </>
                             ) : (
                               <>
                                 <Globe size={14} />
-                                项目共享
+                                {tr("项目共享")}
                               </>
                             )}
                           </span>
@@ -1438,20 +1527,26 @@ export default function App() {
                               : `${(f.size / 1024).toFixed(1)} KB`}
                           </span>
                           <span>
-                            {new Date(f.updated_at).toLocaleDateString("zh-CN")}
+                            {new Date(f.updated_at).toLocaleDateString(
+                              getLocale(),
+                            )}
                           </span>
                         </button>
                       ))}
                   </div>
                 ) : (
-                  <Empty icon={FolderOpen} title="把共同工作的背景，放在这里。">
-                    上传项目资料，或创建第一份需求文档。AI
-                    只能读取获准访问的文件。
+                  <Empty
+                    icon={FolderOpen}
+                    title={tr("把共同工作的背景，放在这里。")}
+                  >
+                    {tr(
+                      "上传项目资料，或创建第一份需求文档。AI 只能读取获准访问的文件。",
+                    )}
                   </Empty>
                 )}
                 <footer className="file-note">
                   <Info size={16} />
-                  每次修改保存为新版本。发生冲突时，需要先读取最新内容。
+                  {tr("每次修改保存为新版本。发生冲突时，需要先读取最新内容。")}
                 </footer>
               </section>
             )}
@@ -1462,7 +1557,7 @@ export default function App() {
                     <section className="kanban-column" key={status}>
                       <h2>
                         <span className={`column-dot ${status}`} />
-                        {statusLabels[status]}
+                        {tr(statusLabels[status])}
                         <span>
                           {
                             data.tasks.filter((t: Item) => t.status === status)
@@ -1482,17 +1577,19 @@ export default function App() {
                                 onClick={() => enterMeeting(task.meeting_id)}
                               >
                                 <ChatCircleDots size={13} />
-                                来自项目会议
+                                {tr("来自项目会议")}
                               </button>
                             )}
                             <footer>
                               <span>
                                 {data.agents.find(
                                   (a: Item) => a.id === task.assignee_id,
-                                )?.name ?? "待分配"}
+                                )?.name ?? tr("待分配")}
                               </span>
                               <select
-                                aria-label={`更新任务 ${task.title} 状态`}
+                                aria-label={tr("更新任务 {value0} 状态", {
+                                  value0: task.title,
+                                })}
                                 disabled={busy}
                                 value={task.status}
                                 onChange={(e) =>
@@ -1506,12 +1603,14 @@ export default function App() {
                                 }
                               >
                                 {status === "proposed" && (
-                                  <option value="proposed">待确认</option>
+                                  <option value="proposed">
+                                    {tr("待确认")}
+                                  </option>
                                 )}
                                 {["todo", "in_progress", "review", "done"].map(
                                   (s) => (
                                     <option key={s} value={s}>
-                                      {statusLabels[s]}
+                                      {tr(statusLabels[s])}
                                     </option>
                                   ),
                                 )}
@@ -1519,10 +1618,13 @@ export default function App() {
                             </footer>
                             <label className="task-assign">
                               <span className="sr-only">
-                                分配任务 {task.title}
+                                {tr("分配任务")}
+                                {task.title}
                               </span>
                               <select
-                                aria-label={`分配任务 ${task.title}`}
+                                aria-label={tr("分配任务 {value0}", {
+                                  value0: task.title,
+                                })}
                                 disabled={busy || task.status === "proposed"}
                                 value={task.assignee_id ?? ""}
                                 onChange={(e) =>
@@ -1538,7 +1640,7 @@ export default function App() {
                                   )
                                 }
                               >
-                                <option value="">分配给 AI…</option>
+                                <option value="">{tr("分配给 AI…")}</option>
                                 {data.agents.map((a: Item) => (
                                   <option value={a.id} key={a.id}>
                                     {a.name}
@@ -1550,7 +1652,7 @@ export default function App() {
                         ))}
                       {data.tasks.filter((t: Item) => t.status === status)
                         .length === 0 && (
-                        <div className="column-empty">暂时没有任务</div>
+                        <div className="column-empty">{tr("暂时没有任务")}</div>
                       )}
                     </section>
                   ),
@@ -1561,7 +1663,8 @@ export default function App() {
               <div className="team-page">
                 <section>
                   <h2>
-                    项目伙伴 <span>{data.members.length}</span>
+                    {tr("项目成员")}
+                    <span>{data.members.length}</span>
                   </h2>
                   <div className="people-grid">
                     {data.members.map((m: Item, i: number) => (
@@ -1570,7 +1673,9 @@ export default function App() {
                         <h3>{m.name}</h3>
                         <p>@{m.username}</p>
                         <span className="role">
-                          {m.role === "owner" ? "空间创建者" : "项目成员"}
+                          {m.role === "owner"
+                            ? tr("空间创建者")
+                            : tr("项目伙伴")}
                         </span>
                       </article>
                     ))}
@@ -1579,13 +1684,14 @@ export default function App() {
                 <section>
                   <div className="section-header">
                     <h2>
-                      接入的 AI <span>{data.agents.length}</span>
+                      {tr("接入的 AI")}
+                      <span>{data.agents.length}</span>
                     </h2>
                     <button
                       className="text-button"
                       onClick={() => setModal("help")}
                     >
-                      接入说明
+                      {tr("接入说明")}
                       <ArrowUpRight size={14} />
                     </button>
                   </div>
@@ -1604,12 +1710,15 @@ export default function App() {
                         />
                         <h3>{a.name}</h3>
                         <p>
-                          {a.model} · {a.owner_name} 的 AI
+                          {a.model} ·{" "}
+                          {tr("{name} 的 AI", { name: a.owner_name })}
                         </p>
                         <small>
                           {a.last_seen
-                            ? `最近连接 ${time(a.last_seen)}`
-                            : "等待客户端连接"}
+                            ? tr("最近连接 {value0}", {
+                                value0: time(a.last_seen),
+                              })
+                            : tr("等待客户端连接")}
                         </small>
                         {a.owner_id === user?.id && (
                           <button
@@ -1619,7 +1728,7 @@ export default function App() {
                               setModal("revoke");
                             }}
                           >
-                            撤销接入凭证
+                            {tr("撤销接入凭证")}
                           </button>
                         )}
                       </article>
@@ -1629,8 +1738,8 @@ export default function App() {
                       onClick={() => setModal("agent")}
                     >
                       <Plus size={26} />
-                      <h3>带上你的 AI</h3>
-                      <p>创建身份，连接你自己的工具。</p>
+                      <h3>{tr("带上你的 AI")}</h3>
+                      <p>{tr("创建身份，连接你自己的工具。")}</p>
                     </button>
                   </div>
                 </section>
@@ -1641,16 +1750,18 @@ export default function App() {
                 <div className="section-header">
                   <h2>
                     <ChatCircleDots size={18} />
-                    公共留言板
+                    {tr("公共留言板")}
                   </h2>
-                  <span className="muted">人和接入的 AI 都可以发言</span>
+                  <span className="muted">
+                    {tr("人和接入的 AI 都可以发言")}
+                  </span>
                 </div>
                 {messages.length > 0 && (
                   <Chat messages={messages.slice(-5)} agents={data.agents} />
                 )}
                 <MessageForm
                   disabled={busy}
-                  placeholder="留下一条消息，让伙伴们知道你的想法…"
+                  placeholder={tr("留下一条消息，让伙伴们知道你的想法…")}
                   send={(body) =>
                     action(async () => {
                       await api(`${endpoint}/messages`, "POST", { body });
@@ -1662,15 +1773,15 @@ export default function App() {
             )}
             <footer className="page-footer">
               <span>
-                conest <span className="footer-separator">/</span> made for
-                working together
+                conest <span className="footer-separator">/</span>{" "}
+                {tr("made for working together")}
               </span>
               <a
                 href="https://github.com/DuoChen-317/conest"
                 target="_blank"
                 rel="noreferrer"
               >
-                Open source
+                {tr("Open source")}
                 <ArrowUpRight size={12} />
               </a>
             </footer>
@@ -1681,18 +1792,18 @@ export default function App() {
         <Modal
           title={
             {
-              project: "开始一个新项目",
-              join: "加入伙伴的项目",
-              meeting: "把大家叫到一起",
-              agent: "带上你的 AI",
-              help: "让自己的 AI 接入 CoNest",
-              invite: "邀请伙伴加入",
-              file: file ? "项目文件" : "新建项目文档",
-              task: "明确下一步",
-              decision: "记录讨论结果",
-              resident: "你的 AI 伙伴",
-              revoke: "撤销 AI 接入凭证",
-              endMeeting: "结束这场会议",
+              project: tr("开始一个新项目"),
+              join: tr("加入伙伴的项目"),
+              meeting: tr("把大家叫到一起"),
+              agent: tr("带上你的 AI"),
+              help: tr("让自己的 AI 接入 CoNest"),
+              invite: tr("邀请伙伴加入"),
+              file: file ? tr("项目文件") : tr("新建项目文档"),
+              task: tr("明确下一步"),
+              decision: tr("记录讨论结果"),
+              resident: tr("你的 AI 伙伴"),
+              revoke: tr("撤销 AI 接入凭证"),
+              endMeeting: tr("结束这场会议"),
             }[modal] ?? "CoNest"
           }
           close={close}
@@ -1711,32 +1822,32 @@ export default function App() {
                   setProjectId(p.id);
                   setTab("office");
                   close();
-                }, "项目已创建");
+                }, tr("项目已创建"));
               }}
             >
               <p className="modal-intro">
-                先定下共同要做的事，再邀请伙伴和 AI。
+                {tr("先定下共同要做的事，再邀请伙伴和 AI。")}
               </p>
               <label>
-                项目名称
+                {tr("项目名称")}
                 <input
                   name="name"
                   required
                   maxLength={100}
-                  placeholder="例如：一起搭建我们的新产品"
+                  placeholder={tr("例如：一起搭建我们的新产品")}
                 />
               </label>
               <label>
-                项目说明
+                {tr("项目说明")}
                 <textarea
                   name="description"
                   maxLength={4000}
                   rows={3}
-                  placeholder="我们想完成什么？"
+                  placeholder={tr("我们想完成什么？")}
                 />
               </label>
               <button className="button primary full" disabled={busy}>
-                创建项目
+                {tr("创建项目")}
                 <ArrowRight size={17} />
               </button>
             </form>
@@ -1761,11 +1872,15 @@ export default function App() {
               }}
             >
               <label>
-                邀请链接或邀请码
-                <input name="token" required placeholder="粘贴伙伴发来的链接" />
+                {tr("邀请链接或邀请码")}
+                <input
+                  name="token"
+                  required
+                  placeholder={tr("粘贴伙伴发来的链接")}
+                />
               </label>
               <button className="button primary full" disabled={busy}>
-                加入项目
+                {tr("加入项目")}
               </button>
             </form>
           )}
@@ -1783,32 +1898,32 @@ export default function App() {
                   });
                   close();
                   enterMeeting(m.id);
-                }, "会议已开始，受邀 AI 可通过客户端读取消息");
+                }, tr("会议已开始，受邀 AI 可通过客户端读取消息"));
               }}
             >
               <p className="modal-intro">
-                项目成员都能参与。选择需要带上背景一起讨论的 AI。
+                {tr("项目成员都能参与。选择需要带上背景一起讨论的 AI。")}
               </p>
               <label>
-                会议主题
+                {tr("会议主题")}
                 <input
                   name="title"
                   required
                   maxLength={160}
-                  placeholder="这次一起决定什么？"
+                  placeholder={tr("这次一起决定什么？")}
                 />
               </label>
               <label>
-                议题与背景
+                {tr("议题与背景")}
                 <textarea
                   name="agenda"
                   rows={3}
                   maxLength={12000}
-                  placeholder="目标、需要讨论的问题，以及相关资料路径"
+                  placeholder={tr("目标、需要讨论的问题，以及相关资料路径")}
                 />
               </label>
               <fieldset>
-                <legend>邀请 AI</legend>
+                <legend>{tr("邀请 AI")}</legend>
                 {data?.agents.length ? (
                   data.agents.map((a: Item) => (
                     <label className="check-label" key={a.id}>
@@ -1821,7 +1936,10 @@ export default function App() {
                       <span>
                         {a.name}
                         <small>
-                          {a.owner_name} 的 {a.model}
+                          {tr("{owner} 的 {name}", {
+                            owner: a.owner_name,
+                            name: a.model,
+                          })}
                         </small>
                       </span>
                       <Badge
@@ -1830,11 +1948,13 @@ export default function App() {
                     </label>
                   ))
                 ) : (
-                  <p className="muted">还没有接入 AI，你们也可以先开会。</p>
+                  <p className="muted">
+                    {tr("还没有接入 AI，你们也可以先开会。")}
+                  </p>
                 )}
               </fieldset>
               <label>
-                每个 AI 的发言上限
+                {tr("每个 AI 的发言上限")}
                 <input
                   name="maxTurns"
                   type="number"
@@ -1844,7 +1964,7 @@ export default function App() {
                 />
               </label>
               <button className="button primary full" disabled={busy}>
-                开始会议
+                {tr("开始会议")}
                 <ChatCircleDots size={18} />
               </button>
             </form>
@@ -1867,29 +1987,30 @@ export default function App() {
                 }}
               >
                 <p className="modal-intro">
-                  CoNest
-                  为它提供身份和协作工具。模型和私人上下文仍由你自己的客户端管理。
+                  {tr(
+                    "CoNest 为它提供身份和协作工具。模型和私人上下文仍由你自己的客户端管理。",
+                  )}
                 </p>
                 <label>
-                  AI 的名字
+                  {tr("AI 的名字")}
                   <input
                     name="name"
                     required
                     maxLength={80}
-                    placeholder="例如：Atlas"
+                    placeholder={tr("例如：Atlas")}
                   />
                 </label>
                 <label>
-                  模型或工具
+                  {tr("模型或工具")}
                   <input
                     name="model"
                     required
                     maxLength={120}
-                    placeholder="例如：Claude / GPT / 自己的 Agent"
+                    placeholder={tr("例如：Claude / GPT / 自己的 Agent")}
                   />
                 </label>
                 <button className="button primary full" disabled={busy}>
-                  生成接入凭证
+                  {tr("生成接入凭证")}
                   <ArrowRight size={17} />
                 </button>
               </form>
@@ -1897,26 +2018,33 @@ export default function App() {
           {modal === "help" && (
             <div className="help-content">
               <p>
-                在“伙伴与 AI”里创建 AI 身份后，把专属凭证配置到你自己的 AI
-                工具中。
+                {tr(
+                  "在“伙伴与 AI”里创建 AI 身份后，把专属凭证配置到你自己的 AI 工具中。",
+                )}
               </p>
-              <h3>MCP 接入</h3>
+              <h3>{tr("MCP 接入")}</h3>
               <p>
-                在支持远程 MCP 和 Bearer
-                凭证的客户端里，配置下面的服务地址。具体配置字段随客户端不同。
+                {tr(
+                  "在支持远程 MCP 和 Bearer 凭证的客户端里，配置下面的服务地址。具体配置字段随客户端不同。",
+                )}
               </p>
               <pre>{`${location.origin}/mcp`}</pre>
-              <h3>普通 HTTP API</h3>
+              <h3>{tr("普通 HTTP API")}</h3>
               <p>
-                也可以用自己的程序调用项目 API。每个 AI
-                只能访问凭证对应的项目，以及其所属用户获准共享的资料。
+                {tr(
+                  "也可以用自己的程序调用项目 API。每个 AI 只能访问凭证对应的项目，以及其所属用户获准共享的资料。",
+                )}
               </p>
-              <pre>{`Authorization: Bearer <你的 AI 凭证>\nGET /api/projects/<项目 ID>\nGET /api/projects/<项目 ID>/events?after=0&wait=20`}</pre>
-              <h3>持续参与会议</h3>
+              <pre>
+                {tr(
+                  "Authorization: Bearer <你的 AI 凭证>\nGET /api/projects/<项目 ID>\nGET /api/projects/<项目 ID>/events?after=0&wait=20",
+                )}
+              </pre>
+              <h3>{tr("持续参与会议")}</h3>
               <p>
-                外部客户端需要保持运行，读取新消息并触发自己的
-                AI。连接接口不会自动启动模型。仓库里的 examples/agent.ts
-                提供事件监听入口。
+                {tr(
+                  "外部客户端需要保持运行，读取新消息并触发自己的 AI。连接接口不会自动启动模型。仓库里的 examples/agent.ts 提供事件监听入口。",
+                )}
               </p>
               <a
                 className="button"
@@ -1924,7 +2052,7 @@ export default function App() {
                 target="_blank"
                 rel="noreferrer"
               >
-                查看完整接入文档
+                {tr("查看完整接入文档")}
                 <ArrowUpRight size={16} />
               </a>
             </div>
@@ -1932,8 +2060,9 @@ export default function App() {
           {modal === "invite" && credential && (
             <div>
               <p>
-                把链接发给伙伴。对方登录后即可加入这个项目。链接 24
-                小时内有效，最多加入 20 人。
+                {tr(
+                  "把链接发给伙伴。对方登录后即可加入这个项目。链接 24 小时内有效，最多加入 20 人。",
+                )}
               </p>
               <CopyBox value={credential.invite} />
             </div>
@@ -1951,12 +2080,12 @@ export default function App() {
                     visibility: filePrivate ? "private" : "shared",
                   });
                   close();
-                }, "文件新版本已保存");
+                }, tr("文件新版本已保存"));
               }}
             >
               <div className="file-editor-toolbar">
                 <label>
-                  文件路径
+                  {tr("文件路径")}
                   <input
                     required
                     value={filePath}
@@ -1973,12 +2102,13 @@ export default function App() {
                       href={`/api${endpoint}/files/${file.id}?version=${file.version}&download=1`}
                     >
                       <DownloadSimple size={16} />
-                      下载 v{file.version}
+                      {tr("下载 v")}
+                      {file.version}
                     </a>
                     <label>
-                      查看版本
+                      {tr("查看版本")}
                       <select
-                        aria-label="查看文件版本"
+                        aria-label={tr("查看文件版本")}
                         value={file.version}
                         onChange={(e) =>
                           void openFile(file, Number(e.target.value))
@@ -1996,7 +2126,7 @@ export default function App() {
               </div>
               {!file || fileEditable ? (
                 <label>
-                  文档内容
+                  {tr("文档内容")}
                   <textarea
                     className="code-editor"
                     rows={15}
@@ -2009,7 +2139,9 @@ export default function App() {
                 <div className="binary-preview">
                   <FileText size={32} />
                   <p>
-                    此文件适合下载查看。编辑上传的文本文件支持 500 KB 以内。
+                    {tr(
+                      "此文件适合下载查看。编辑上传的文本文件支持 500 KB 以内。",
+                    )}
                   </p>
                 </div>
               )}
@@ -2020,15 +2152,17 @@ export default function App() {
                   disabled={!!file && file.owner_id !== user?.id}
                   onChange={(e) => setFilePrivate(e.target.checked)}
                 />
-                仅我与我的 AI 可见
+                {tr("仅我与我的 AI 可见")}
               </label>
               <div className="modal-footer">
-                <p className="muted">保存时检查版本，避免覆盖他人的更新。</p>
+                <p className="muted">
+                  {tr("保存时检查版本，避免覆盖他人的更新。")}
+                </p>
                 <button
                   className="button primary"
                   disabled={busy || (!!file && !fileEditable)}
                 >
-                  保存{file ? "新版本" : "文档"}
+                  {file ? tr("保存新版本") : tr("保存文档")}
                   <Check size={16} />
                 </button>
               </div>
@@ -2047,26 +2181,26 @@ export default function App() {
                     ...(meetingId ? { meetingId } : {}),
                   });
                   close();
-                }, "任务已创建");
+                }, tr("任务已创建"));
               }}
             >
               <label>
-                任务名称
+                {tr("任务名称")}
                 <input
                   name="title"
                   required
                   maxLength={200}
-                  placeholder="接下来要完成什么？"
+                  placeholder={tr("接下来要完成什么？")}
                 />
               </label>
               <label>
-                说明与验收要求
+                {tr("说明与验收要求")}
                 <textarea name="description" rows={4} maxLength={12000} />
               </label>
               <label>
-                负责的 AI
+                {tr("负责的 AI")}
                 <select name="assigneeId">
-                  <option value="">稍后分配</option>
+                  <option value="">{tr("稍后分配")}</option>
                   {data?.agents.map((a: Item) => (
                     <option key={a.id} value={a.id}>
                       {a.name} · {a.owner_name}
@@ -2075,7 +2209,7 @@ export default function App() {
                 </select>
               </label>
               <button className="button primary full" disabled={busy}>
-                创建任务
+                {tr("创建任务")}
                 <Plus size={16} />
               </button>
             </form>
@@ -2091,21 +2225,23 @@ export default function App() {
                     ...(meetingId ? { meetingId } : {}),
                   });
                   close();
-                }, "已保存待确认方案");
+                }, tr("已保存待确认方案"));
               }}
             >
               <label>
-                方案、共识或需要保留的分歧
+                {tr("方案、共识或需要保留的分歧")}
                 <textarea
                   name="body"
                   required
                   maxLength={12000}
                   rows={7}
-                  placeholder="把讨论中重要的结果记录下来，确认后成为项目依据。"
+                  placeholder={tr(
+                    "把讨论中重要的结果记录下来，确认后成为项目依据。",
+                  )}
                 />
               </label>
               <button className="button primary full" disabled={busy}>
-                保存为待确认方案
+                {tr("保存为待确认方案")}
               </button>
             </form>
           )}
@@ -2125,7 +2261,10 @@ export default function App() {
               />
               <h3>{selectedMember.name}</h3>
               <p>
-                {selectedMember.owner_name} 的 {selectedMember.model}
+                {tr("{owner} 的 {name}", {
+                  owner: selectedMember.owner_name,
+                  name: selectedMember.model,
+                })}
               </p>
               <Badge
                 status={
@@ -2136,8 +2275,14 @@ export default function App() {
               />
               <p className="muted">
                 {selectedMember.last_seen
-                  ? `最近连接：${new Date(selectedMember.last_seen).toLocaleString("zh-CN")}`
-                  : "尚未收到客户端连接。配置好 MCP 或 API 后，它就可以参与项目。"}
+                  ? tr("最近连接：{value0}", {
+                      value0: new Date(selectedMember.last_seen).toLocaleString(
+                        getLocale(),
+                      ),
+                    })
+                  : tr(
+                      "尚未收到客户端连接。配置好 MCP 或 API 后，它就可以参与项目。",
+                    )}
               </p>
               <button
                 className="button"
@@ -2146,7 +2291,7 @@ export default function App() {
                   setTab("team");
                 }}
               >
-                查看伙伴与 AI
+                {tr("查看伙伴与 AI")}
                 <ArrowRight size={16} />
               </button>
             </div>
@@ -2154,8 +2299,10 @@ export default function App() {
           {modal === "revoke" && selectedMember && (
             <div>
               <p>
-                撤销后，{selectedMember.name}{" "}
-                的现有凭证将立即失效。历史发言和提交的成果会保留。
+                {tr(
+                  "撤销后，{name} 的现有凭证将立即失效。历史发言和提交的成果会保留。",
+                  { name: selectedMember.name },
+                )}
               </p>
               <button
                 className="button destructive full"
@@ -2167,17 +2314,19 @@ export default function App() {
                       "DELETE",
                     );
                     close();
-                  }, "AI 凭证已撤销")
+                  }, tr("AI 凭证已撤销"))
                 }
               >
-                撤销凭证
+                {tr("撤销凭证")}
               </button>
             </div>
           )}
           {modal === "endMeeting" && (
             <div>
               <p>
-                结束后将停止接收本场会议的新发言。讨论记录、方案与关联任务都会保留。
+                {tr(
+                  "结束后将停止接收本场会议的新发言。讨论记录、方案与关联任务都会保留。",
+                )}
               </p>
               <button
                 className="button primary full"
@@ -2188,10 +2337,10 @@ export default function App() {
                       status: "ended",
                     });
                     close();
-                  }, "会议已结束")
+                  }, tr("会议已结束"))
                 }
               >
-                结束会议
+                {tr("结束会议")}
               </button>
             </div>
           )}
@@ -2205,8 +2354,8 @@ export default function App() {
       )}
       {error && (
         <div className="toast error" role="alert">
-          <span>{error}</span>
-          <button onClick={() => setError("")} aria-label="关闭错误">
+          <span>{localizeError(error)}</span>
+          <button onClick={() => setError("")} aria-label={tr("关闭错误")}>
             <X size={18} />
           </button>
         </div>
@@ -2241,7 +2390,7 @@ function MessageForm({
       }}
     >
       <label className="sr-only" htmlFor="message-body">
-        消息内容
+        {tr("消息内容")}
       </label>
       <textarea
         id="message-body"
@@ -2254,7 +2403,7 @@ function MessageForm({
       />
       <button
         className="send-button"
-        aria-label="发送消息"
+        aria-label={tr("发送消息")}
         disabled={disabled || sending || !body.trim()}
       >
         <PaperPlaneTilt size={19} weight="fill" />
@@ -2268,7 +2417,7 @@ function Chat({ messages, agents }: { messages: Item[]; agents: Item[] }) {
     end.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
   }, [messages.length]);
   return (
-    <div className="chat-log" role="log" aria-label="讨论消息">
+    <div className="chat-log" role="log" aria-label={tr("讨论消息")}>
       {messages.length ? (
         messages.map((m) => (
           <article className={`chat-message ${m.actor_type}`} key={m.id}>
@@ -2292,7 +2441,7 @@ function Chat({ messages, agents }: { messages: Item[]; agents: Item[] }) {
                   <span className="ai-label">
                     AI ·{" "}
                     {agents.find((a) => a.id === m.actor_id)?.owner_name ??
-                      "伙伴"}
+                      tr("伙伴")}
                   </span>
                 )}
                 <time>{time(m.created_at)}</time>
@@ -2302,7 +2451,7 @@ function Chat({ messages, agents }: { messages: Item[]; agents: Item[] }) {
           </article>
         ))
       ) : (
-        <p className="chat-empty">议题已经准备好，分享第一个想法吧。</p>
+        <p className="chat-empty">{tr("议题已经准备好，分享第一个想法吧。")}</p>
       )}
       <div ref={end} />
     </div>
@@ -2316,7 +2465,7 @@ function CopyBox({ value }: { value: string }) {
       <pre tabIndex={0}>{value}</pre>
       <button
         className="icon-button"
-        aria-label="复制"
+        aria-label={tr("复制")}
         onClick={() => {
           navigator.clipboard
             .writeText(value)
@@ -2329,7 +2478,9 @@ function CopyBox({ value }: { value: string }) {
       >
         {copied ? <Check size={18} /> : <Copy size={18} />}
       </button>
-      {error && <small role="status">无法自动复制，请选中文本手动复制。</small>}
+      {error && (
+        <small role="status">{tr("无法自动复制，请选中文本手动复制。")}</small>
+      )}
     </div>
   );
 }
@@ -2339,16 +2490,16 @@ function Credential({ credential }: { credential: Item }) {
       <div className="success-note">
         <CheckCircle size={22} />
         <div>
-          <b>{credential.name} 的身份已创建</b>
-          <p>凭证仅展示这一次。请保存到你的客户端配置中。</p>
+          <b>{tr("{name} 的身份已创建", { name: credential.name })}</b>
+          <p>{tr("凭证仅展示这一次。请保存到你的客户端配置中。")}</p>
         </div>
       </div>
       <label>
-        AI 专属凭证
+        {tr("AI 专属凭证")}
         <CopyBox value={credential.token} />
       </label>
       <label>
-        远程 MCP 配置示例
+        {tr("远程 MCP 配置示例")}
         <CopyBox
           value={JSON.stringify(
             {
@@ -2365,11 +2516,12 @@ function Credential({ credential }: { credential: Item }) {
         />
       </label>
       <p className="muted">
-        这是通用示例，客户端的配置字段可能不同。保持客户端运行，AI
-        才能持续参与会议。
+        {tr(
+          "这是通用示例，客户端的配置字段可能不同。保持客户端运行，AI 才能持续参与会议。",
+        )}
       </p>
       <label>
-        项目 ID
+        {tr("项目 ID")}
         <CopyBox value={credential.projectId} />
       </label>
     </div>

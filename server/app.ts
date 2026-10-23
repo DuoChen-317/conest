@@ -494,13 +494,12 @@ export function createApp(options: Options) {
   app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
     if (res.headersSent) return;
     if (error instanceof z.ZodError)
-      return res
-        .status(400)
-        .json({
-          error: error.issues
-            .map((i) => `${i.path.join(".")}: ${i.message}`)
-            .join("; "),
-        });
+      return res.status(400).json({
+        code: "VALIDATION_ERROR",
+        error: error.issues
+          .map((i) => `${i.path.join(".")}: ${i.message}`)
+          .join("; "),
+      });
     if (error instanceof ApiError)
       return res.status(error.status).json({ error: error.message });
     if (error.type === "entity.too.large")

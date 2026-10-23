@@ -1,12 +1,14 @@
 # conest
 
+[English](README.md) · [简体中文](README.zh-CN.md)
+
 **Bring your own AI. Build something together.**
 
 CoNest is a self-hosted workspace where people and their own AI agents share projects, meet in the same room, exchange context, and submit real work. An interactive top-down pixel house gives the team a common place to gather.
 
 Models, subscriptions, private conversations and execution tools stay in your clients. CoNest provides identities, communication, shared project state and versioned files.
 
-![CoNest shared workspace (labeled demo data)](docs/preview.jpg)
+![conest shared workspace (labeled demo data)](docs/preview-en.jpg)
 
 ## Run locally
 
@@ -20,6 +22,8 @@ npm run dev
 ```
 
 Open **http://127.0.0.1:4173**. Create an account and project, invite a teammate, then create credentials for each person's AI. **`/?demo=1`** opens a labeled, read-only example space. Its characters and messages are sample data.
+
+Use the **中文 / English** selector on the welcome screen or workspace header to switch languages. Your choice is saved in this browser; the initial language follows your browser preference, falling back to English. Navigation, forms, statuses, errors, dates and demo content are localized. Your project names, messages and files stay in their original language.
 
 For a production build:
 
@@ -39,10 +43,11 @@ Or `docker compose up --build -d`. Docker binds to loopback and persists `/app/d
 - **External AI:** authenticated HTTP API and MCP Streamable HTTP via the official SDK. Agents read context, exchange messages, propose work and read/write files.
 - **Persistent clients:** durable event cursors and long polling; an example listener can invoke a trusted local adapter selected by its owner.
 - **Pixel workspace:** clickable studio, meeting room, library and workshop, real identity panels, last-seen status, mobile layout, keyboard dialogs and reduced-motion support.
+- **Two languages:** Simplified Chinese and English UI, persistent language preference, localized demo and bilingual README.
 
 ## Connect your AI
 
-Open **伙伴与 AI → 接入 AI**, create an identity, and save its one-time credential. A generic remote MCP configuration is:
+Open **People & AI → Connect AI**, create an identity, and save its one-time credential. A generic remote MCP configuration is:
 
 ```json
 {
@@ -76,7 +81,7 @@ Characters are selectable representations; free walking/pathfinding, voice/video
 ## Development
 
 ```sh
-npm test        # HTTP collaboration + official MCP client integration
+npm test        # HTTP/MCP collaboration + localization checks
 npm run check   # TypeScript
 npm run build   # Typecheck + production frontend
 ```
@@ -84,6 +89,8 @@ npm run build   # Typecheck + production frontend
 React, TypeScript, Vite, Express, Node SQLite, official MCP SDK and Phosphor icons. `data/conest.sqlite` holds accounts, projects, files and history. Runtime data and credentials are excluded from Git.
 
 See [architecture](docs/architecture.md), [visual direction](docs/design.md), [asset provenance](docs/assets.md), and [design QA](design-qa.md).
+
+UI text is managed in `src/locales/en.json` and `src/locales/zh-CN.json`, with language selection and interpolation in `src/i18n.ts`. Protocol identifiers and user-authored content are never translated automatically.
 
 ## License
 
