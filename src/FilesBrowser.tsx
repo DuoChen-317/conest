@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   ArrowUp,
+  CaretDown,
   CaretRight,
   FileText,
   Folder,
@@ -16,7 +17,6 @@ import {
   Info,
   LockSimple,
   MagnifyingGlass,
-  SidebarSimple,
   X,
 } from "@phosphor-icons/react";
 import {
@@ -44,26 +44,21 @@ export default function FilesBrowser({
   const locale = useLocale();
   const [search, setSearch] = useState("");
   const folderNavId = useId();
-  const [foldersOpen, setFoldersOpen] = useState(() => {
-    try {
-      const saved = localStorage.getItem("conest.files.folders-open");
-      if (saved === "true" || saved === "false") return saved === "true";
-    } catch {
-      /* Folder browsing remains available without browser storage. */
-    }
-    return !window.matchMedia("(max-width: 760px)").matches;
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem("conest.files.folders-open", String(foldersOpen));
-    } catch {
-      /* Keep the current preference for this visit. */
-    }
-  }, [foldersOpen]);
+  const [expandedFolders, setExpandedFolders] = useState(new Set<string>());
   const locationRef = useRef<HTMLButtonElement>(null);
   const focusLocation = useRef(false);
   const index = useMemo(() => buildFileIndex(files, locale), [files, locale]);
   const current = resolveDirectory(index, directory);
+  useEffect(() => {
+    // Reveal the selected path when navigation starts from the file list or breadcrumbs.
+    setExpandedFolders((previous) => {
+      const next = new Set(previous);
+      const parts = current.path.split("/");
+      for (let i = 1; i <= parts.length; i++)
+        next.add(parts.slice(0, i).join("/"));
+      return next;
+    });
+  }, [current.path]);
   useEffect(() => {
     if (current.path !== directory) navigate(current.path);
   }, [current.path, directory, navigate]);
@@ -88,26 +83,67 @@ export default function FilesBrowser({
   }
 
   function folderLinks(folder: FileDirectory, depth = 0): ReactNode {
-    return folder.folders.map((child) => (
-      <li key={child.path}>
-        <button
-          type="button"
-          className={current.path === child.path ? "selected" : ""}
-          aria-current={current.path === child.path ? "page" : undefined}
-          style={{ paddingInlineStart: 12 + Math.min(depth, 5) * 12 }}
-          title={child.path}
-          onClick={() => enter(child.path)}
-        >
-          {current.path === child.path ? (
-            <FolderOpen size={17} aria-hidden="true" />
-          ) : (
-            <Folder size={17} aria-hidden="true" />
+    return folder.folders.map((child) => {
+      const expanded = expandedFolders.has(child.path);
+      const childrenId = `${folderNavId}-${encodeURIComponent(child.path)}`;
+      return (
+        <li key={child.path}>
+          <div
+            className="file-tree-row"
+            style={{ paddingInlineStart: Math.min(depth, 5) * 12 }}
+          >
+            {child.folders.length > 0 ? (
+              <button
+                type="button"
+                className="file-tree-toggle"
+                aria-label={
+                  expanded
+                    ? tr("收起 {name}", { name: child.name })
+                    : tr("展开 {name}", { name: child.name })
+                }
+                aria-expanded={expanded}
+                aria-controls={childrenId}
+                onClick={() =>
+                  setExpandedFolders((previous) => {
+                    const next = new Set(previous);
+                    if (next.has(child.path)) next.delete(child.path);
+                    else next.add(child.path);
+                    return next;
+                  })
+                }
+              >
+                {expanded ? (
+                  <CaretDown size={13} aria-hidden="true" />
+                ) : (
+                  <CaretRight size={13} aria-hidden="true" />
+                )}
+              </button>
+            ) : (
+              <span className="file-tree-toggle-spacer" aria-hidden="true" />
+            )}
+            <button
+              type="button"
+              className={current.path === child.path ? "selected" : ""}
+              aria-current={current.path === child.path ? "page" : undefined}
+              title={child.path}
+              onClick={() => enter(child.path)}
+            >
+              {current.path === child.path ? (
+                <FolderOpen size={17} aria-hidden="true" />
+              ) : (
+                <Folder size={17} aria-hidden="true" />
+              )}
+              <span>{child.name}</span>
+            </button>
+          </div>
+          {child.folders.length > 0 && (
+            <ul id={childrenId} hidden={!expanded}>
+              {folderLinks(child, depth + 1)}
+            </ul>
           )}
-          <span>{child.name}</span>
-        </button>
-        {child.folders.length > 0 && <ul>{folderLinks(child, depth + 1)}</ul>}
-      </li>
-    ));
+        </li>
+      );
+    });
   }
 
   return (
@@ -116,27 +152,10 @@ export default function FilesBrowser({
       aria-label={tr("项目资料")}
     >
       <div className="files-toolbar">
-        <div className="file-toolbar-heading">
-          <button
-            type="button"
-            className="file-folders-toggle"
-            aria-label={foldersOpen ? tr("收起文件夹栏") : tr("展开文件夹栏")}
-            title={foldersOpen ? tr("收起文件夹栏") : tr("展开文件夹栏")}
-            aria-expanded={foldersOpen}
-            aria-controls={folderNavId}
-            onClick={() => setFoldersOpen((open) => !open)}
-          >
-            <SidebarSimple
-              size={21}
-              weight={foldersOpen ? "duotone" : "regular"}
-              aria-hidden="true"
-            />
-          </button>
-          <h2>
-            {tr("项目资料")}
-            <span>{files.length}</span>
-          </h2>
-        </div>
+        <h2>
+          {tr("项目资料")}
+          <span>{files.length}</span>
+        </h2>
         <label className="search">
           <MagnifyingGlass size={17} aria-hidden="true" />
           <input
@@ -157,15 +176,8 @@ export default function FilesBrowser({
           )}
         </label>
       </div>
-      <div
-        className={`file-browser-layout${foldersOpen ? "" : " folders-collapsed"}`}
-      >
-        <nav
-          id={folderNavId}
-          hidden={!foldersOpen}
-          className="file-directory-nav"
-          aria-label={tr("文件夹导航")}
-        >
+      <div className="file-browser-layout">
+        <nav className="file-directory-nav" aria-label={tr("文件夹导航")}>
           <p>{tr("文件夹")}</p>
           <button
             type="button"

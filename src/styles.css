@@ -3960,25 +3960,6 @@ body {
 }
 
 /* Project folders share the existing file permissions and versioned editor. */
-.file-toolbar-heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-.file-folders-toggle {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: #496452;
-}
-.file-folders-toggle:hover {
-  background: #edf3ea;
-}
 .project-file-browser .files-toolbar h2 {
   display: flex;
   align-items: center;
@@ -4056,11 +4037,26 @@ body {
   color: #345d41;
   font-weight: 600;
 }
+.file-tree-row {
+  display: flex;
+  align-items: center;
+}
+.file-tree-row > button:not(.file-tree-toggle) {
+  flex: 1;
+  min-width: 0;
+  padding-inline: 6px;
+}
+.file-directory-nav .file-tree-toggle,
+.file-tree-toggle-spacer {
+  width: 26px;
+  flex: 0 0 26px;
+}
+.file-directory-nav .file-tree-toggle {
+  justify-content: center;
+  padding: 0;
+}
 .file-directory-content {
   min-width: 0;
-}
-.file-browser-layout.folders-collapsed {
-  grid-template-columns: minmax(0, 1fr);
 }
 .file-location-bar {
   display: flex;
@@ -4262,7 +4258,7 @@ body {
   }
 }
 
-/* A wider frame leaves breathing room around the centered office. */
+/* Preserve the original fixed-height office view while allowing manual resizing. */
 .office-workspace {
   grid-template-columns: minmax(0, 1fr) 14px minmax(
       260px,
@@ -4274,8 +4270,7 @@ body {
   min-width: 0;
 }
 .office-workspace .house-world:not(.expanded) .house-viewport {
-  height: var(--office-scene-height, auto);
-  aspect-ratio: 4 / 3;
+  height: var(--office-scene-height, 480px);
   min-height: 320px;
   max-height: 1000px;
 }
@@ -4361,7 +4356,15 @@ body {
 .direct-conversation .chat-keyboard-hint {
   margin: -6px 0 12px;
 }
+@media (min-width: 1500px) {
+  .office-workspace .house-world:not(.expanded) .house-viewport {
+    height: var(--office-scene-height, 580px);
+  }
+}
 @media (max-width: 1100px) {
+  .office-workspace .house-world:not(.expanded) .house-viewport {
+    height: var(--office-scene-height, 500px);
+  }
   .office-workspace {
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
@@ -4376,8 +4379,7 @@ body {
 }
 @media (max-width: 760px) {
   .office-workspace .house-world:not(.expanded) .house-viewport {
-    height: 340px;
-    aspect-ratio: auto;
+    height: 310px;
     min-height: 0;
   }
   .office-height-handle {
@@ -4394,15 +4396,11 @@ body {
   }
 }
 .office-workspace .house-world.expanded .house-viewport {
-  height: auto;
-  aspect-ratio: var(--office-world-ratio, 12 / 11);
-  min-height: 480px;
-  max-height: 1200px;
+  height: 650px;
 }
 @media (max-width: 760px) {
   .office-workspace .house-world.expanded .house-viewport {
     height: 490px;
-    aspect-ratio: auto;
     min-height: 0;
   }
 }
