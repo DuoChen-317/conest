@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { officeObjectBounds as source } from "./office-objects";
 import type { SceneAssets } from "./scene-assets";
+import { OfficeDoorController } from "./office-doors";
 import {
   officeSeats,
   meetingSeats,
@@ -8,8 +9,11 @@ import {
   officeClusters,
   officeCabinets,
   readingTable,
-  frontWalls,
+  conferenceTable,
   officeDoors,
+  officeWallBands,
+  officeWallCaps,
+  officeDepth,
   type Seat,
 } from "./office-layout";
 
@@ -25,6 +29,7 @@ type Prop = {
   sh?: number;
   depth?: number;
   flip?: boolean;
+  clipTop?: number;
 };
 // Bounds are layout anchors, never clipping rectangles: every office single is drawn in full.
 const props: Prop[] = [];
@@ -43,22 +48,29 @@ function object(
     y: y - sy * scale,
     w: 32 * scale,
     h: 48 * scale,
-    depth: depth || Math.round((y + sh * scale) / 5.28),
+    depth: depth || y + sh * scale,
     flip,
   });
 }
 function chair(seat: Seat) {
   if (seat.facing === "up") {
     // Full rear chair covers the lower body; its contact point is below the actor's feet.
-    object(102, seat.x - 12, seat.y - 18.5, UNIT, (seat.y + 16) / 5.28 + 1);
+    object(102, seat.x - 12, seat.y - 18.5, UNIT, seat.y + 16);
   } else {
     object(
       seat.facing === "right" ? 104 : 103,
       seat.x - 9,
       seat.y - 34.5,
       UNIT,
-      seat.y / 5.28 + 1,
+      seat.y - 1,
     );
+    // The sitter is in front of the backrest; only the near castors cover their feet.
+    // Draw the complete chair behind them, then its original bottom rows in front.
+    props.push({
+      ...props[props.length - 1],
+      depth: seat.y + 1,
+      clipTop: 39 / 48,
+    });
   }
 }
 function shelf(
@@ -79,45 +91,40 @@ function shelf(
     sy: metal ? 256 : 208,
     sw: wide ? 48 : medium ? 32 : 16,
     sh: 48,
-    depth: (y + 42 * UNIT) / 5.28 + 3,
+    depth: y + 48 * UNIT,
   });
 }
 function mountedAircon(x: number, capY: number) {
-  object(165, x, capY + 3.5, UNIT, 7);
+  object(165, x, capY + 3.5, UNIT, capY + 57);
 }
 function workstation(seat: Seat, display = 130, paper = 153) {
   const x = seat.x - 24,
     y = seat.y - 44;
   object(248, x, y);
   // Original front-facing monitor/laptop, not a rotated side-view sprite.
-  object(
-    display,
-    x + 13,
-    y - (display === 139 ? 4 : 9),
-    UNIT,
-    (y + 25) / 5.28 + 1,
-  );
-  if (display !== 139) object(124, x + 11, y + 19, UNIT, (y + 29) / 5.28 + 1);
+  object(display, x + 13, y - (display === 139 ? 4 : 9), UNIT, y + 29);
+  if (display !== 139) object(124, x + 11, y + 19, UNIT, y + 29.5);
   object(
     paper,
     x + (paper === 154 ? 24 : 29),
     y + (paper === 154 ? 5 : 7),
     UNIT,
-    (y + 30) / 5.28 + 1,
+    y + 30,
   );
-  object(242, x + 2, y + 12, UNIT, (y + 29) / 5.28 + 1);
+  object(242, x + 2, y + 12, UNIT, y + 30);
   chair(seat);
 }
 for (let i = 0; i < 3; i++) {
   const { left, plant, board } = officeClusters[i];
   shelf(left + 5, 27, false, i === 1, i === 2);
-  mountedAircon(left + 28, 16);
-  object(board, left + 96, 25, UNIT, 15);
+  // Leave the entire bookcase silhouette clear, including the wider third cabinet.
+  mountedAircon(left + (i === 2 ? 60 : 36), 16);
+  object(board, left + [96, 100, 104][i], 25, UNIT, 73);
   object(98, plant, 134);
   officeSeats[i].forEach((seat, j) =>
     workstation(seat, j ? [130, 139, 130][i] : [130, 130, 139][i], 153),
   );
-  if (i === 1) object(163, left + 72, 34);
+  if (i === 1) object(163, left + 78, 34);
 }
 for (const cabinet of officeCabinets) object(cabinet.id, cabinet.x, cabinet.y);
 // Connected conference table: identical pixel scale on both axes, one continuous top and base.
@@ -134,28 +141,29 @@ function table(x: number, y: number, rows: number) {
         sy: (row === 0 ? 4 : row === rows - 1 ? 6 : 5) * 16,
         sw: 16,
         sh: 16,
-        depth: (y + rows * 24) / 5.28 + 2,
+        depth: y + rows * 24,
       });
 }
 const sharedPropsStart = props.length;
-table(96, 276, 5);
+table(conferenceTable.x, conferenceTable.y - 48, conferenceTable.height / 24);
 for (const seat of meetingSeats) chair({ ...seat, y: seat.y - 48 });
-mountedAircon(170, 228);
-object(171, 108, 237, UNIT, 272 / 5.28);
+mountedAircon(170, 237);
+object(171, 108, 237, UNIT, 277);
 object(98, 197, 273);
 // Tabletop items remain at the same scale as the workstations.
-object(153, 120, 302, UNIT, 396 / 5.28 + 4);
-object(139, 124, 352, UNIT, 396 / 5.28 + 4);
+const conferenceDepth = conferenceTable.y + conferenceTable.height - 48 + 0.5;
+object(153, 120, 302, UNIT, conferenceDepth);
+object(139, 124, 352, UNIT, conferenceDepth);
 // Complete cabinet units flank the entry; a full table and loaded cart define the reading area.
 shelf(364, 237, true);
 shelf(480, 237, true);
 table(readingTable.x, readingTable.y - 48, 2);
 // The table's first 8 source rows are transparent. Put the actual lamp base
 // inside its visible surface, and keep all tabletop props above the complete table.
-const readingDepth = (readingTable.y + readingTable.height - 48) / 5.28 + 4;
-object(142, 460, 329, UNIT, readingDepth);
-object(154, 419, 341, UNIT, readingDepth);
-object(153, 442, 343, UNIT, readingDepth);
+const readingDepth = readingTable.y + readingTable.height - 48 + 0.5;
+object(142, 460, readingTable.y - 45, UNIT, readingDepth);
+object(154, 419, readingTable.y - 33, UNIT, readingDepth);
+object(153, 442, readingTable.y - 31, UNIT, readingDepth);
 // A full carrier frame with cargo behind its front basket, composed as one object.
 props.push({
   file: "cart.png",
@@ -167,7 +175,7 @@ props.push({
   sy: 0,
   sw: 32,
   sh: 32,
-  depth: 383 / 5.28 + 1,
+  depth: 383,
 });
 object(99, 366, 381);
 // Whole coffee/printer prefabs retain their tabletop, equipment and legs together.
@@ -179,7 +187,7 @@ object(99, 326, 381);
 
 for (const prop of props.slice(sharedPropsStart)) {
   prop.y += 48;
-  if (prop.depth) prop.depth += 48 / 5.28;
+  if (prop.depth) prop.depth += 48;
 }
 
 function Base({ assets }: { assets: SceneAssets }) {
@@ -226,43 +234,7 @@ function Base({ assets }: { assets: SceneAssets }) {
     floor(24, 284, 200, 172, 12, 7, true);
     floor(360, 284, 192, 172, 12, 7, true);
     floor(232, 284, 120, 180, 14, 5);
-    const wallFace = (x: number, y: number, w: number, h: number) => {
-      floor(x, y, w, h, 5, 11);
-      ctx.fillStyle = "#61748d";
-      ctx.fillRect(x, y + h - 3, w, 3);
-      ctx.fillStyle = "rgba(32,42,62,.16)";
-      ctx.fillRect(x, y + h, w, 5);
-    };
-    // Original brick faces and white cutaway caps, rather than freehand colored boxes.
-    wallFace(24, 24, 528, 48);
-    for (const [x, w] of [
-      [24, 24],
-      [72, 208],
-      [304, 136],
-      [464, 88],
-    ])
-      wallFace(x, 284, w, 40);
-    // Taller archive wall accommodates the complete tall cabinets, with their bases at the floor.
-    wallFace(360, 284, 80, 60);
-    wallFace(464, 284, 88, 60);
-    const wall = (x: number, y: number, w: number, h = 8) => {
-      ctx.fillStyle = "#424d64";
-      ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = "#eff0f6";
-      ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
-      ctx.fillStyle = "#b8bfd0";
-      if (w > h) ctx.fillRect(x + 1, y + h - 3, w - 2, 2);
-      else ctx.fillRect(x + w - 3, y + 1, 2, h - 2);
-    };
-    wall(16, 16, 544);
-    wall(16, 24, 8, 480);
-    wall(552, 24, 8, 480);
-    wall(192, 24, 8, 160);
-    wall(384, 24, 8, 160);
-    wall(24, 276, 528);
-    wall(224, 284, 8, 180);
-    wall(352, 284, 8, 180);
-    floor(280, 464, 24, 64, 14, 5);
+    floor(280, 456, 24, 72, 14, 5);
   }, [assets]);
   return (
     <canvas
@@ -318,7 +290,8 @@ function Furnishing({ p, assets }: { p: Prop; assets: SceneAssets }) {
         top: p.y * 2,
         width: p.w * 2,
         height: p.h * 2,
-        zIndex: Math.round(p.depth ?? (p.y + p.h) / 5.28),
+        zIndex: officeDepth(p.depth ?? p.y + p.h),
+        clipPath: p.clipTop ? `inset(${p.clipTop * 100}% 0 0)` : undefined,
         transform: p.flip ? "scaleX(-1)" : undefined,
       }}
     >
@@ -340,12 +313,12 @@ function Furnishing({ p, assets }: { p: Prop; assets: SceneAssets }) {
     </span>
   );
 }
-function FrontWall({
+function WallBand({
   assets,
   wall,
 }: {
   assets: SceneAssets;
-  wall: (typeof frontWalls)[number];
+  wall: (typeof officeWallBands)[number];
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -353,115 +326,161 @@ function FrontWall({
     ctx.imageSmoothingEnabled = false;
     ctx.setTransform(2, 0, 0, 2, 0, 0);
     const sheet = assets.images["room.png"];
-    ctx.clearRect(0, 0, wall.width, 48);
-    // Original brick courses and skirting; one shared cap spans walls and door headers.
-    for (let y = 8; y < 48; y += 24)
-      for (let x = 0; x < wall.width; x += 24) {
-        const w = Math.min(24, wall.width - x),
-          h = Math.min(24, 48 - y);
-        ctx.drawImage(sheet, 80, 176, w / 1.5, h / 1.5, x, y, w, h);
-      }
-    ctx.fillStyle = "#61748d";
-    ctx.fillRect(0, 45, wall.width, 3);
+    ctx.clearRect(0, 0, wall.width, wall.height);
+    // Use the complete authored top/bottom tile pair. The old single-row repeat
+    // lost the skirting and introduced a different brick phase beside each door.
+    for (let x = 0; x < wall.width; x += 24)
+      ctx.drawImage(sheet, 16, 176, 16, 32, x, 0, 24, 48);
   }, [assets, wall]);
   return (
     <canvas
       ref={ref}
       width={wall.width * 2}
-      height={96}
+      height={wall.height * 2}
       className="office-front-wall"
+      data-wall-band={wall.y}
       style={{
         left: wall.x * 2,
         top: wall.y * 2,
         width: wall.width * 2,
-        height: 96,
-        zIndex: Math.round((wall.y + 48) / 5.28) + 2,
+        height: wall.height * 2,
+        zIndex: officeDepth(wall.y + wall.height, 2),
       }}
       aria-hidden="true"
     />
   );
 }
 
+function WallCaps({ assets }: { assets: SceneAssets }) {
+  const top = useRef<HTMLCanvasElement>(null);
+  const front = useRef<HTMLCanvasElement>(null);
+  const outline = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1152;
+    canvas.height = 1056;
+    const ctx = canvas.getContext("2d")!;
+    // Join the ceiling runs before outlining them, so T-junctions and corners
+    // have one continuous silhouette instead of overlapping rectangle borders.
+    const mask = new Uint8Array(canvas.width * canvas.height);
+    for (const rect of officeWallCaps)
+      for (let y = rect.y * 2; y < (rect.y + rect.height) * 2; y++)
+        mask.fill(
+          1,
+          y * canvas.width + rect.x * 2,
+          y * canvas.width + (rect.x + rect.width) * 2,
+        );
+    const sample = document.createElement("canvas");
+    sample.width = 1;
+    sample.height = 6;
+    const sampling = sample.getContext("2d")!;
+    sampling.drawImage(assets.images["room.png"], 24, 0, 1, 6, 0, 0, 1, 6);
+    const profile = sampling.getImageData(0, 0, 1, 6).data;
+    const pixels = ctx.createImageData(canvas.width, canvas.height);
+    const w = canvas.width,
+      stroke = 3; // one source pixel at the scene's 3× raster scale
+    for (let y = stroke; y < canvas.height - stroke; y++)
+      for (let x = stroke; x < w - stroke; x++) {
+        const p = y * w + x;
+        if (!mask[p]) continue;
+        const inside = [-stroke, 0, stroke].every((dy) =>
+          [-stroke, 0, stroke].every((dx) => mask[p + dy * w + dx]),
+        );
+        const source = inside ? 4 : 0;
+        pixels.data.set(profile.subarray(source, source + 4), p * 4);
+      }
+    ctx.putImageData(pixels, 0, 0);
+    return canvas;
+  }, [assets]);
+  useEffect(() => {
+    top
+      .current!.getContext("2d")!
+      .drawImage(outline, 0, 0, 1152, 48, 0, 0, 1152, 48);
+    front
+      .current!.getContext("2d")!
+      .drawImage(outline, 0, 48, 1152, 1008, 0, 0, 1152, 1008);
+  }, [outline]);
+  return (
+    <>
+      <canvas
+        ref={top}
+        width={1152}
+        height={48}
+        className="office-wall-caps"
+        style={{ top: 0, zIndex: officeDepth(24, 2) }}
+        aria-hidden="true"
+      />
+      <canvas
+        ref={front}
+        width={1152}
+        height={1008}
+        className="office-wall-caps"
+        style={{ top: 48, zIndex: officeDepth(528, 2) }}
+        aria-hidden="true"
+      />
+    </>
+  );
+}
+
 function OfficeDoor({
   assets,
   door,
-  paused,
-  reduced,
+  doors,
 }: {
   assets: SceneAssets;
   door: (typeof officeDoors)[number];
-  paused: boolean;
-  reduced: boolean;
+  doors: OfficeDoorController;
 }) {
-  const ref = useRef<HTMLCanvasElement>(null),
-    frame = useRef(0),
-    phase = useRef(0);
+  const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const node = ref.current!,
       ctx = node.getContext("2d")!;
     ctx.imageSmoothingEnabled = false;
-    ctx.setTransform(3, 0, 0, 3, 0, 0);
-    const floor = node.closest(".house-floor")!;
-    let raf = 0,
-      last = 0,
-      lastNear = 0,
-      lastPaint = -1;
-    const paint = () => {
-      const f = reduced ? 4 : frame.current;
-      if (f === lastPaint) return;
-      lastPaint = f;
-      ctx.clearRect(0, 0, 20, 32);
-      const room = assets.images["room.png"];
-      // The wall header begins below the continuous cap. The complete vendor door below
-      // already includes its frame; no second floating lintel or stretched jambs.
-      ctx.drawImage(room, 80, 176, 16, 11 - 16 / 3, 2, 16 / 3, 16, 11 - 16 / 3);
-      // Masonry fills the original frame's transparent outer margins.
-      for (const x of [2, 17])
-        for (let y = 11; y < 32; y += 16) {
-          const h = Math.min(16, 32 - y);
-          ctx.drawImage(room, 80, 176, 1, h, x, y, 1, h);
-        }
-      ctx.drawImage(assets.images["door.png"], f * 16, 0, 16, 32, 2, 0, 16, 32);
-      node.dataset.frame = String(f);
-    };
-    const tick = (now: number) => {
-      const near = Array.from(
-        floor.querySelectorAll<HTMLElement>(
-          "[data-resident][data-walking='true']",
-        ),
-      ).some(
-        (actor) =>
-          Math.abs(parseFloat(actor.style.left) * 5.76 - door.x) < 28 &&
-          Math.abs(parseFloat(actor.style.top) * 5.28 - door.y) < 64,
+    // Reveal the corridor through the actual leaf cutout, rather than the brick
+    // wall painted behind the closed frame. Preserve the vendor's full jambs.
+    const cutout = document.createElement("canvas");
+    cutout.width = 16;
+    cutout.height = 32;
+    const mask = cutout.getContext("2d")!;
+    mask.drawImage(assets.images["door.png"], 0, 0, 16, 32, 0, 0, 16, 32);
+    const closed = mask.getImageData(0, 0, 16, 32);
+    mask.clearRect(0, 0, 16, 32);
+    mask.drawImage(assets.images["door.png"], 64, 0, 16, 32, 0, 0, 16, 32);
+    const opened = mask.getImageData(0, 0, 16, 32);
+    for (let i = 0; i < closed.data.length; i += 4)
+      closed.data[i + 3] = closed.data[i + 3] && !opened.data[i + 3] ? 255 : 0;
+    mask.putImageData(closed, 0, 0);
+    mask.globalCompositeOperation = "source-in";
+    mask.drawImage(assets.images["room.png"], 176, 80, 16, 32, 0, 0, 16, 32);
+    return doors.subscribe(door.id, (frame) => {
+      ctx.clearRect(0, 0, 48, 96);
+      ctx.drawImage(cutout, 0, 0, 48, 96);
+      ctx.drawImage(
+        assets.images["door.png"],
+        frame * 16,
+        0,
+        16,
+        32,
+        0,
+        0,
+        48,
+        96,
       );
-      if (near) lastNear = now;
-      const target = near || now - lastNear < 550 ? 4 : 0;
-      phase.current += last ? Math.min(80, now - last) : 0;
-      last = now;
-      if (phase.current >= 70) {
-        frame.current += Math.sign(target - frame.current);
-        phase.current %= 70;
-      }
-      paint();
-      raf = requestAnimationFrame(tick);
-    };
-    paint();
-    if (!paused && !reduced) raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [assets, door, paused, reduced]);
+      node.dataset.frame = String(frame);
+    });
+  }, [assets, door, doors]);
   return (
     <canvas
       ref={ref}
-      width={60}
+      width={48}
       height={96}
       className="office-door"
       data-door={door.id}
       style={{
-        left: (door.x - 15) * 2,
-        top: (door.y - 48) * 2,
-        width: 60,
+        left: (door.x - 12) * 2,
+        top: door.wallY * 2,
+        width: 48,
         height: 96,
-        zIndex: Math.round(door.y / 5.28) + 7,
+        zIndex: officeDepth(door.y, 3),
       }}
       aria-hidden="true"
     />
@@ -470,47 +489,43 @@ function OfficeDoor({
 
 export default function OfficeScene({
   assets,
-  paused = false,
-  reduced = false,
+  doors,
+  paused,
+  reduced,
 }: {
   assets: SceneAssets;
-  paused?: boolean;
-  reduced?: boolean;
+  doors: OfficeDoorController;
+  paused: boolean;
+  reduced: boolean;
 }) {
+  useEffect(() => {
+    if (reduced) {
+      doors.reset();
+      return;
+    }
+    if (paused) return;
+    let animation = 0,
+      last = 0;
+    const tick = (now: number) => {
+      doors.advance(last ? Math.min(now - last, 80) : 0);
+      last = now;
+      animation = requestAnimationFrame(tick);
+    };
+    animation = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animation);
+  }, [doors, paused, reduced]);
   return (
     <>
       <Base assets={assets} />
-      <div
-        className="office-mount-cap"
-        style={{ left: 32, top: 32, width: 1088 }}
-      />
-      {[
-        { x: 24, y: 184, width: 528 },
-        { x: 24, y: 276, width: 528 },
-        { x: 24, y: 456, width: 208 },
-        { x: 352, y: 456, width: 200 },
-        { x: 232, y: 464, width: 120 },
-      ].map((cap) => (
-        <div
-          key={`${cap.x}-${cap.y}`}
-          className="office-mount-cap"
-          style={{ left: cap.x * 2, top: cap.y * 2, width: cap.width * 2 }}
-        />
-      ))}
+      <WallCaps assets={assets} />
       {props.map((p, i) => (
         <Furnishing key={i} p={p} assets={assets} />
       ))}
-      {frontWalls.map((wall, i) => (
-        <FrontWall key={i} assets={assets} wall={wall} />
+      {officeWallBands.map((wall) => (
+        <WallBand key={wall.y} assets={assets} wall={wall} />
       ))}
       {officeDoors.map((door) => (
-        <OfficeDoor
-          key={door.id}
-          assets={assets}
-          door={door}
-          paused={paused}
-          reduced={reduced}
-        />
+        <OfficeDoor key={door.id} assets={assets} door={door} doors={doors} />
       ))}
     </>
   );

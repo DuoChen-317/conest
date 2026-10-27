@@ -51,7 +51,20 @@ export class Store {
       CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL REFERENCES projects(id), kind TEXT NOT NULL, payload TEXT NOT NULL, owner_id TEXT, created_at TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS event_project ON events(project_id,id);
       CREATE INDEX IF NOT EXISTS message_project ON messages(project_id,meeting_id,created_at);
+      CREATE TABLE IF NOT EXISTS agent_preferences(agent_id TEXT PRIMARY KEY REFERENCES agents(id), meeting_policy TEXT NOT NULL DEFAULT 'ask' CHECK(meeting_policy IN ('ask','auto')), allow_direct INTEGER NOT NULL DEFAULT 0 CHECK(allow_direct IN (0,1)));
+      CREATE TABLE IF NOT EXISTS meeting_invitations(id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL REFERENCES meetings(id), actor_id TEXT NOT NULL, actor_type TEXT NOT NULL CHECK(actor_type IN ('human','agent')), invited_by TEXT NOT NULL REFERENCES users(id), status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','declined')), seen_at TEXT, deferred_at TEXT, joined_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(meeting_id,actor_id,actor_type));
+      CREATE INDEX IF NOT EXISTS invitation_recipient ON meeting_invitations(actor_type,actor_id,created_at);
+      CREATE TABLE IF NOT EXISTS direct_conversations(id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), user_id TEXT NOT NULL REFERENCES users(id), agent_id TEXT NOT NULL REFERENCES agents(id), created_at TEXT NOT NULL, UNIQUE(project_id,user_id,agent_id));
+      CREATE TABLE IF NOT EXISTS direct_messages(id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES direct_conversations(id), actor_id TEXT NOT NULL, actor_type TEXT NOT NULL, actor_name TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS direct_message_conversation ON direct_messages(conversation_id,created_at);
+      CREATE TABLE IF NOT EXISTS message_targets(message_id TEXT NOT NULL REFERENCES messages(id), agent_id TEXT NOT NULL REFERENCES agents(id), PRIMARY KEY(message_id,agent_id));
+      CREATE TABLE IF NOT EXISTS agent_requests(id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), agent_id TEXT NOT NULL REFERENCES agents(id), message_id TEXT NOT NULL, conversation_id TEXT REFERENCES direct_conversations(id), meeting_id TEXT REFERENCES meetings(id), status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','processing','replied','failed')), lease_id TEXT, claimed_at TEXT, reply_id TEXT, created_at TEXT NOT NULL, UNIQUE(message_id,agent_id));
+      CREATE INDEX IF NOT EXISTS agent_request_queue ON agent_requests(project_id,agent_id,status,created_at);
     `);
+    // Preserve access for AI participants invited before explicit approval existed.
+    this.db
+      .exec(`INSERT OR IGNORE INTO meeting_invitations(id,meeting_id,actor_id,actor_type,invited_by,status,created_at,updated_at)
+      SELECT 'legacy-' || p.meeting_id || '-' || p.agent_id,p.meeting_id,p.agent_id,'agent',m.creator_id,'accepted',m.created_at,m.created_at FROM participants p JOIN meetings m ON m.id=p.meeting_id;`);
   }
   one(sql: string, ...params: any[]): Row | undefined {
     return this.db.prepare(sql).get(...params) as Row | undefined;

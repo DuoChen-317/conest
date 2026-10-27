@@ -58,6 +58,35 @@ export async function handleMcp(
       service.waitForEvents(actor, projectId, a.after, a.waitSeconds, signal),
   );
   tool(
+    "list_ai_requests",
+    "List direct questions and explicit meeting mentions addressed to you and authorized by your owner. Claim a request before generating a reply.",
+    {},
+    () => service.conversations.queue(actor, projectId),
+  );
+  tool(
+    "claim_ai_request",
+    "Claim one addressed question for up to three minutes. Returns only that conversation, meeting context and shared text files; never private office history or private files.",
+    { requestId: z.string() },
+    (a) => service.conversations.claim(actor, projectId, a.requestId),
+  );
+  tool(
+    "reply_to_ai_request",
+    "Reply to a claimed question using its leaseId, or mark it failed. Retrying the same successful reply will not create duplicates.",
+    {
+      requestId: z.string(),
+      leaseId: z.string(),
+      body: z.string().min(1).max(12000).optional(),
+      failed: z.boolean().default(false),
+    },
+    (a) => service.conversations.finish(actor, projectId, a.requestId, a),
+  );
+  tool(
+    "join_meeting",
+    "Acknowledge attendance in a meeting approved by your owner. An invitation alone never reports attendance.",
+    { meetingId: z.string() },
+    (a) => service.collaboration.join(actor, projectId, a.meetingId),
+  );
+  tool(
     "read_messages",
     "Read up to 200 recent messages in an invited meeting, or the project lounge when meetingId is omitted.",
     { meetingId: z.string().optional() },

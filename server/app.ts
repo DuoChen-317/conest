@@ -44,7 +44,7 @@ export function createApp(options: Options) {
     }
     next();
   });
-  app.use(express.json({ limit: "13mb" }));
+  app.use(express.json({ limit: "13mb", inflate: false }));
   const attempts = new Map<string, { count: number; until: number }>();
   const limitAuth = (req: Request, _res: Response, next: NextFunction) => {
     const key = req.ip ?? "unknown";
@@ -194,6 +194,150 @@ export function createApp(options: Options) {
   app.use("/api", authenticate);
   app.get("/api/me", (_req, res) =>
     res.json({ actor: current(res), user: res.locals.user }),
+  );
+  app.get(
+    "/api/notifications",
+    route((_req, res) =>
+      res.json(service.collaboration.notifications(current(res))),
+    ),
+  );
+  app.post(
+    "/api/projects/:projectId/conversations",
+    route((req, res) =>
+      res
+        .status(201)
+        .json(
+          service.conversations.start(
+            current(res),
+            String(req.params.projectId),
+            req.body,
+          ),
+        ),
+    ),
+  );
+  app.get(
+    "/api/projects/:projectId/conversations/:conversationId/messages",
+    route((req, res) =>
+      res.json(
+        service.conversations.messages(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.conversationId),
+        ),
+      ),
+    ),
+  );
+  app.post(
+    "/api/projects/:projectId/conversations/:conversationId/messages",
+    route((req, res) =>
+      res
+        .status(201)
+        .json(
+          service.conversations.send(
+            current(res),
+            String(req.params.projectId),
+            String(req.params.conversationId),
+            req.body,
+          ),
+        ),
+    ),
+  );
+  app.get(
+    "/api/projects/:projectId/agent-requests",
+    route((req, res) =>
+      res.json(
+        service.conversations.queue(current(res), String(req.params.projectId)),
+      ),
+    ),
+  );
+  app.post(
+    "/api/projects/:projectId/agent-requests/:requestId/claim",
+    route((req, res) =>
+      res.json(
+        service.conversations.claim(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.requestId),
+        ),
+      ),
+    ),
+  );
+  app.post(
+    "/api/projects/:projectId/agent-requests/:requestId/reply",
+    route((req, res) =>
+      res.json(
+        service.conversations.finish(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.requestId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.post(
+    "/api/projects/:projectId/agent-requests/:requestId/retry",
+    route((req, res) =>
+      res.json(
+        service.conversations.retry(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.requestId),
+        ),
+      ),
+    ),
+  );
+  app.patch(
+    "/api/notifications/:invitationId",
+    route((req, res) =>
+      res.json(
+        service.collaboration.respond(
+          current(res),
+          String(req.params.invitationId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.patch(
+    "/api/projects/:projectId/agents/:agentId/preferences",
+    route((req, res) =>
+      res.json(
+        service.collaboration.preferences(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.agentId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.post(
+    "/api/projects/:projectId/meetings/:meetingId/invitations",
+    route((req, res) =>
+      res
+        .status(201)
+        .json(
+          service.collaboration.invite(
+            current(res),
+            String(req.params.projectId),
+            String(req.params.meetingId),
+            req.body,
+          ),
+        ),
+    ),
+  );
+  app.post(
+    "/api/projects/:projectId/meetings/:meetingId/join",
+    route((req, res) =>
+      res.json(
+        service.collaboration.join(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.meetingId),
+        ),
+      ),
+    ),
   );
   app.post(
     "/api/auth/logout",
@@ -538,6 +682,10 @@ export function createApp(options: Options) {
       return res.status(error.status).json({ error: error.message });
     if (error.type === "entity.too.large")
       return res.status(413).json({ error: "Request is too large" });
+    if (error.type === "encoding.unsupported")
+      return res
+        .status(415)
+        .json({ error: "Compressed request bodies are not supported" });
     if (error instanceof SyntaxError)
       return res.status(400).json({ error: "Invalid JSON" });
     console.error("Request failed:", error.message);

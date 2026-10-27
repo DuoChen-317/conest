@@ -12,13 +12,12 @@ import { createDemoData } from "../src/api.ts";
 import en from "../src/locales/en.json";
 import zh from "../src/locales/zh-CN.json";
 
-test("saved language wins; first browser preference selects Chinese or English", () => {
-  assert.equal(resolveLocale("en", ["zh-CN"]), "en");
-  assert.equal(resolveLocale("zh-CN", ["en-US"]), "zh-CN");
-  assert.equal(resolveLocale(null, ["zh-TW", "en-US"]), "zh-CN");
-  assert.equal(resolveLocale("unsupported", ["en-GB", "zh-CN"]), "en");
-  assert.equal(resolveLocale(null, ["fr-FR"]), "en");
-  assert.equal(resolveLocale(null, []), "en");
+test("English is the default; explicitly saved language is retained", () => {
+  assert.equal(resolveLocale("en"), "en");
+  assert.equal(resolveLocale("zh-CN"), "zh-CN");
+  assert.equal(resolveLocale(null), "en");
+  assert.equal(resolveLocale("unsupported"), "en");
+  assert.equal(resolveLocale(""), "en");
 });
 
 test("interpolation preserves names and treats values as literal content", () => {
@@ -37,7 +36,7 @@ test("interpolation preserves names and treats values as literal content", () =>
 test("demo seeds are localized without changing identity, permissions or protocol values", () => {
   const chinese = createDemoData("zh-CN");
   const english = createDemoData("en");
-  assert.match(chinese.project.name, /一起/);
+  assert.match(chinese.project.name, /示例/);
   assert.doesNotMatch(JSON.stringify(english), /\p{Script=Han}/u);
   assert.deepEqual(english.agents, chinese.agents);
   assert.deepEqual(english.members, chinese.members);
@@ -58,6 +57,9 @@ test("translations retain interpolation fields and cover all Chinese UI keys", (
     assert.deepEqual(fields(key), fields(value), key);
   for (const path of [
     "src/App.tsx",
+    "src/CopyBox.tsx",
+    "src/ConnectorSetup.tsx",
+    "src/CollaborationUI.tsx",
     "src/api.ts",
     "src/i18n.ts",
     "src/HouseWorld.tsx",

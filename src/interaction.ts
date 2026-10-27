@@ -20,6 +20,37 @@ export function interactionFor(
   if (room === "commons") return "seated";
   return working ? "typing" : "seated";
 }
+
+/** Scene state comes from authenticated reports; sample mode is explicit at the call site. */
+export function sceneStateFor(
+  actor: { robot: boolean; status?: string; last_seen?: string | null },
+  presence: { room?: string; updated_at?: string | null } | undefined,
+  { now = Date.now(), sample = false, working = false } = {},
+) {
+  const lastSeen = actor.robot ? actor.last_seen : presence?.updated_at;
+  const online =
+    sample ||
+    (actor.status !== "offline" &&
+      Boolean(lastSeen) &&
+      now - Date.parse(lastSeen!) < 90_000);
+  const room: Room =
+    online &&
+    ["office", "meeting", "library", "commons"].includes(presence?.room ?? "")
+      ? (presence!.room as Room)
+      : "office";
+  const status = online ? (actor.status ?? "idle") : "offline";
+  return {
+    online,
+    room,
+    status,
+    activity: interactionFor(
+      room,
+      status,
+      online &&
+        (actor.robot ? ["working", "thinking"].includes(status) : working),
+    ),
+  };
+}
 /** Atlas row and direction are separate from locomotion. This sheet has real seated/reading poses. */
 export function humanPose(
   activity: Interaction | "walking",

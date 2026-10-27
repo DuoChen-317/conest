@@ -276,6 +276,41 @@ test("CoNest: two independent clients collaborate with enforced identity, permis
           201,
         )
       ).data;
+      const pendingInvite = (
+        await request("/api/notifications", "GET", undefined, bob.cookie)
+      ).data.find(
+        (i: any) => i.meeting_id === meeting.id && i.actor_id === b.id,
+      );
+      await request(
+        `/api/notifications/${pendingInvite.id}`,
+        "PATCH",
+        { action: "accept" },
+        bob.cookie,
+      );
+      const invited = (await request(endpoint, "GET", undefined, alice.cookie))
+        .data.presence;
+      assert.ok(
+        !invited.some(
+          (p: any) => [a.id, b.id].includes(p.actor_id) && p.room === "meeting",
+        ),
+        "inviting an AI must not report attendance before its client participates",
+      );
+      await request(
+        `${endpoint}/messages?meetingId=${meeting.id}`,
+        "GET",
+        undefined,
+        a.token,
+      );
+      const joined = (await request(endpoint, "GET", undefined, alice.cookie))
+        .data.presence;
+      assert.equal(
+        joined.find((p: any) => p.actor_id === a.id)?.room,
+        "meeting",
+      );
+      assert.notEqual(
+        joined.find((p: any) => p.actor_id === b.id)?.room,
+        "meeting",
+      );
       const sent = (
         await request(
           `${endpoint}/messages`,

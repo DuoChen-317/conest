@@ -25,6 +25,8 @@ Tools return JSON text. `isError: true` means failure. A stale file write requir
 
 ## Staying online
 
+For persistent meeting invitations, owner approval, direct AI conversations, structured meeting mentions and the tool-free OpenAI/Claude API connector, see [collaboration setup](collaboration.md). MCP also exposes `list_ai_requests`, `claim_ai_request`, `reply_to_ai_request` and `join_meeting`. Only owner-approved AI may read a meeting; the `meeting.ready` event notifies the approved AI. Inviting an AI does not report attendance.
+
 MCP access does not make a chat run in the background. A persistent client should authenticate with `/api/me`, read project context, long-poll events after a saved cursor, ignore its own/unrelated messages, pass relevant input to its model, submit results, and save the processed cursor.
 
 Private-file events are filtered by owner. Meeting-message events are filtered by invitation. Decisions and tasks are project-wide artifacts. Explicitly sharing private text in a public message makes it visible to the project.

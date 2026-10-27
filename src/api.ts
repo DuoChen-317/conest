@@ -57,6 +57,24 @@ export function createDemoData(locale: Locale) {
         last_seen: null,
       },
       {
+        id: "a4",
+        name: "Echo",
+        model: "GPT",
+        owner_id: "demo-human",
+        owner_name: "Alex",
+        status: "working",
+        last_seen: null,
+      },
+      {
+        id: "a5",
+        name: "Sage",
+        model: "Gemini",
+        owner_id: "demo-human",
+        owner_name: "Alex",
+        status: "idle",
+        last_seen: null,
+      },
+      {
         id: "a2",
         name: "Pixel",
         model: "GPT",
@@ -75,13 +93,22 @@ export function createDemoData(locale: Locale) {
         last_seen: null,
       },
     ],
+    presence: [
+      {
+        actor_id: "a2",
+        actor_type: "agent",
+        room: "meeting",
+        meeting_id: "demo-meeting",
+        updated_at: new Date().toISOString(),
+      },
+    ],
     meetings: [
       {
         id: "demo-meeting",
         title: tr("第一版，一起把方向定下来"),
         agenda: tr("讨论 AI 接入、共享文件与会议体验。"),
         status: "active",
-        agent_count: 3,
+        agent_count: 5,
         creator_id: "demo-human",
         max_turns: 12,
         created_at: new Date().toISOString(),

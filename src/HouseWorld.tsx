@@ -11,7 +11,6 @@ import {
   Books,
   UsersThree,
   HouseLine,
-  Monitor,
   CaretLeft,
   CaretRight,
 } from "@phosphor-icons/react";
@@ -31,11 +30,20 @@ import {
 import type { Item } from "./api";
 import { useSceneAssets } from "./scene-assets";
 import OfficeScene from "./OfficeScene";
-import { officeSeats } from "./office-layout";
+import { officeDepth } from "./office-layout";
+import { assignOffices, reserveRoomSeat } from "./office-teams";
+import { demoPhaseAt, demoRoomFor } from "./demo-scene";
+import {
+  OfficeDoorController,
+  doorOnSegment,
+  doorEntryY,
+  doorCleared,
+  type DoorTransit,
+} from "./office-doors";
 import ResidentAnimation from "./ResidentAnimation";
 import RobotSprite from "./RobotSprite";
 import {
-  interactionFor,
+  sceneStateFor,
   interactionNames,
   type Interaction,
 } from "./interaction";
@@ -127,6 +135,7 @@ type Resident = {
   skin: number;
   ownerId: string;
   office: number;
+  officePage: number;
   room: Room;
   status: string;
   model?: string;
@@ -140,14 +149,12 @@ function Walker({
   resident,
   paused,
   reduced,
-  selected,
-  select,
+  doors,
 }: {
   resident: Resident;
   paused: boolean;
   reduced: boolean;
-  selected: boolean;
-  select: () => void;
+  doors: OfficeDoorController;
 }) {
   const assets = useSceneAssets();
   const [speaking, setSpeaking] = useState(false);
@@ -161,36 +168,54 @@ function Walker({
   }, [resident.speakingUntil]);
   const interaction =
     speaking && resident.room === "meeting" ? "speaking" : resident.activity;
-  const node = useRef<HTMLButtonElement>(null);
-  const current = useRef<Point>(
-    destination("office", resident.office, resident.skin, resident.robot),
-  );
+  const node = useRef<HTMLDivElement>(null);
+  const current = useRef<Point>(resident.goal);
+  const coordinateSystem = useRef(Boolean(assets));
   const [walking, setWalking] = useState(false),
+    [waitingForDoor, setWaitingForDoor] = useState(false),
     [frame, setFrame] = useState(0),
     [direction, setDirection] = useState(resident.room === "office" ? 2 : 1);
   const frameRef = useRef(0);
   useEffect(() => {
+    let transit: DoorTransit | undefined;
     const place = (p: Point) => {
       current.current = p;
+      if (transit && doorCleared(transit, p)) {
+        doors.releaseActor(resident.id);
+        transit = undefined;
+      }
       if (node.current) {
         node.current.style.left = `${p.x}%`;
         node.current.style.top = `${p.y}%`;
-        node.current.style.zIndex = String(Math.round(p.y) + (assets ? 0 : 5));
+        node.current.style.zIndex = String(
+          assets ? officeDepth(p.y * 5.28) : Math.round(p.y) + 5,
+        );
       }
     };
-    if (reduced) {
+    if (
+      reduced ||
+      resident.status === "offline" ||
+      (current.current.x === resident.goal.x &&
+        current.current.y === resident.goal.y) ||
+      coordinateSystem.current !== Boolean(assets)
+    ) {
+      coordinateSystem.current = Boolean(assets);
       place(resident.goal);
       setWalking(false);
+      setWaitingForDoor(false);
       setFrame(0);
       setDirection(resident.facing ?? (resident.room === "office" ? 2 : 1));
       return;
     }
-    if (paused) return;
-    const route = findPath(
-      current.current,
-      resident.goal,
-      assets ? officeWalkable : walkable,
-    );
+    if (paused) {
+      setWalking(false);
+      return;
+    }
+    const canWalk = assets ? officeWalkable : walkable;
+    const route = findPath(current.current, resident.goal, canWalk);
+    // Recover an old/invalid anchor without animating a straight line through a wall.
+    if (!canWalk(current.current.x, current.current.y) && route[0])
+      place(route[0]);
     let next = 0,
       last = 0,
       tick = 0,
@@ -201,8 +226,32 @@ function Walker({
       last = now;
       let remaining = elapsed * 0.22;
       while (next < route.length) {
-        const target = route[next],
-          dx =
+        let target = route[next];
+        let gate = false;
+        const passage = assets
+          ? doorOnSegment(current.current, target)
+          : undefined;
+        if (passage && !transit) {
+          const entry = doorEntryY(passage) / 5.28;
+          if (passage.direction * (current.current.y - entry) >= -0.0001) {
+            transit = passage;
+            doors.request(passage.door.id, resident.id);
+          } else if (passage.direction * (target.y - entry) > 0) {
+            target = { x: target.x, y: entry };
+            gate = true;
+          }
+        }
+        if (transit && doors.frame(transit.door.id) < 4) {
+          setWalking(false);
+          setWaitingForDoor(true);
+          setFrame(0);
+          setDirection(transit.direction === 1 ? 1 : 2);
+          animation = requestAnimationFrame(move);
+          return;
+        }
+        setWalking(true);
+        setWaitingForDoor(false);
+        const dx =
             (target.x - current.current.x) *
             (assets ? officeWorld.width / 100 : 15.36),
           dy =
@@ -212,7 +261,7 @@ function Walker({
         if (distance <= remaining || distance < 0.1) {
           place(target);
           remaining -= distance;
-          next++;
+          if (!gate) next++;
           continue;
         }
         setDirection(
@@ -230,6 +279,7 @@ function Walker({
       }
       if (next >= route.length) {
         setWalking(false);
+        setWaitingForDoor(false);
         setFrame(0);
         setDirection(
           resident.facing ??
@@ -256,39 +306,54 @@ function Walker({
       animation = requestAnimationFrame(move);
     };
     animation = requestAnimationFrame(move);
-    return () => cancelAnimationFrame(animation);
+    return () => {
+      cancelAnimationFrame(animation);
+      doors.releaseActor(resident.id);
+    };
   }, [
     resident.goal.x,
     resident.goal.y,
     resident.room,
     resident.facing,
     resident.robot,
+    resident.status,
     paused,
     reduced,
     assets,
+    doors,
+    resident.id,
   ]);
   return (
-    <button
+    <div
       ref={node}
-      type="button"
-      className={`house-resident ${selected ? "selected" : ""} ${speaking ? "speaking" : ""} ${resident.status === "offline" ? "disconnected" : ""}`}
+      role="img"
+      className={`house-resident ${speaking ? "speaking" : ""} ${resident.status === "offline" ? "disconnected" : ""}`}
       style={{
         left: `${current.current.x}%`,
         top: `${current.current.y}%`,
-        zIndex: Math.round(current.current.y) + (assets ? 0 : 5),
+        zIndex: assets
+          ? officeDepth(current.current.y * 5.28)
+          : Math.round(current.current.y) + 5,
         width: assets ? 96 : 64,
         height: assets ? 96 : 64,
       }}
-      onClick={select}
       data-resident={resident.id}
       data-self={resident.self || undefined}
       data-room={resident.room}
       data-walking={walking}
-      data-action={walking ? "walking" : interaction}
-      aria-label={tr("查看 {name}：{activity}", {
+      data-action={
+        waitingForDoor ? "waiting-door" : walking ? "walking" : interaction
+      }
+      aria-label={tr("{name}：{activity}", {
         name: resident.name,
         activity: tr(
-          walking ? "正在沿走廊移动" : interactionNames[interaction],
+          resident.status === "offline"
+            ? "未连接"
+            : waitingForDoor
+              ? "等待开门"
+              : walking
+                ? "正在沿走廊移动"
+                : interactionNames[interaction],
         ),
       })}
     >
@@ -298,7 +363,7 @@ function Walker({
         frame={frame}
         direction={direction}
         size={assets ? 96 : 64}
-        activity={interaction}
+        activity={waitingForDoor ? "idle" : interaction}
         walking={walking}
         paused={paused}
         reduced={reduced}
@@ -308,14 +373,14 @@ function Walker({
         {resident.name}
         <i className={resident.status === "offline" ? "offline" : ""} />
       </span>
-      {(selected || speaking) && (
+      {speaking && (
         <span className="house-thought">
           {walking
             ? tr("正在前往 {room}", { room: tr(roomNames[resident.room]) })
             : tr(interactionNames[interaction])}
         </span>
       )}
-    </button>
+    </div>
   );
 }
 export default function HouseWorld({
@@ -323,9 +388,6 @@ export default function HouseWorld({
   ownId,
   demo,
   compact = false,
-  onRoom,
-  onAgent,
-  onDemoMove,
   ownWorking = false,
   recentMessages = [],
 }: {
@@ -333,16 +395,18 @@ export default function HouseWorld({
   ownId: string;
   demo: boolean;
   compact?: boolean;
-  onRoom: (room: Room) => void;
-  onAgent: (agent: Item) => void;
-  onDemoMove?: (actorId: string, room: Room) => void;
   ownWorking?: boolean;
   recentMessages?: Item[];
 }) {
   useLocale();
   const assets = useSceneAssets();
+  const doors = useMemo(() => new OfficeDoorController(), [data.project.id]);
   const worldWidth = assets ? officeWorld.width : 1536;
   const worldHeight = assets ? officeWorld.height : 1024;
+  const offices = useMemo(
+    () => assignOffices(data.members, data.agents),
+    [data.members, data.agents],
+  );
   useEffect(() => {
     if (assets) setSceneReady(true);
   }, [assets]);
@@ -354,8 +418,29 @@ export default function HouseWorld({
     [expanded, setExpanded] = useState(false),
     [paused, setPaused] = useState(false),
     [reduced, setReduced] = useState(false),
-    [page, setPage] = useState(0),
-    [selected, setSelected] = useState<string | null>(null);
+    [page, setPage] = useState(0);
+  const [demoPhase, setDemoPhase] = useState(0);
+  const demoElapsed = useRef(0);
+  useEffect(() => {
+    if (!demo || !assets || paused || reduced) return;
+    let animation = 0;
+    let last = performance.now();
+    let phase = demoPhaseAt(demoElapsed.current);
+    const tick = (now: number) => {
+      // Hidden tabs suspend playback instead of skipping destinations on return.
+      demoElapsed.current += Math.min(now - last, 100);
+      last = now;
+      const next = demoPhaseAt(demoElapsed.current);
+      if (next !== phase) {
+        phase = next;
+        setDemoPhase(next);
+      }
+      animation = requestAnimationFrame(tick);
+    };
+    animation = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animation);
+  }, [demo, assets, paused, reduced]);
+  const visibleOffices = offices.slice(page * 3, page * 3 + 3);
   const [sceneReady, setSceneReady] = useState(false);
   useEffect(() => {
     const mobile = dimensions.width < 600 && !compact && !expanded;
@@ -374,7 +459,7 @@ export default function HouseWorld({
                 [18.5, 50, 80.8][
                   Math.max(
                     0,
-                    data.members.findIndex((m: Item) => m.id === ownId),
+                    offices.findIndex((office) => office.ownerId === ownId),
                   ) % 3
                 ]) *
                 (worldWidth / 100) *
@@ -420,66 +505,74 @@ export default function HouseWorld({
       Math.floor(
         Math.max(
           0,
-          data.members.findIndex((m: Item) => m.id === ownId),
+          offices.findIndex((office) => office.ownerId === ownId),
         ) / 3,
       ),
     );
-    setSelected(null);
   }, [data.project.id, ownId]);
+  useEffect(() => {
+    setPage((current) =>
+      Math.min(current, Math.max(0, Math.ceil(offices.length / 3) - 1)),
+    );
+  }, [offices.length]);
+  const roomSeats = useMemo(
+    () => new Map<Room, Map<string, number>>(),
+    [data.project.id],
+  );
   const residents = useMemo(() => {
-    const counters: Record<string, number> = {};
+    const actorIds = new Set(
+      [...data.members, ...data.agents].map((actor: Item) => actor.id),
+    );
+    for (const seats of roomSeats.values())
+      for (const actorId of seats.keys())
+        if (!actorIds.has(actorId)) seats.delete(actorId);
     return [
       ...data.members.map((m: Item, i: number) => ({
         ...m,
         robot: false,
         ownerId: m.id,
         skin: i,
-        office: i % 3,
       })),
       ...data.agents.map((a: Item, i: number) => ({
         ...a,
         robot: true,
         ownerId: a.owner_id,
         skin: i,
-        office:
-          Math.max(
-            0,
-            data.members.findIndex((m: Item) => m.id === a.owner_id),
-          ) % 3,
       })),
     ]
       .map((r: Item) => {
-        const presence = data.presence?.find(
+        const officeIndex = offices.findIndex((office) =>
+          office.actorIds.includes(r.id),
+        );
+        const office = Math.max(0, officeIndex) % 3;
+        const seatIndex = Math.max(
+          0,
+          offices[officeIndex]?.actorIds.indexOf(r.id) ?? 0,
+        );
+        const reportedPresence = data.presence?.find(
           (p: Item) =>
             p.actor_id === r.id &&
             p.actor_type === (r.robot ? "agent" : "human"),
         );
-        const online =
-          demo ||
-          (r.robot
-            ? r.last_seen && Date.now() - Date.parse(r.last_seen) < 90000
-            : presence && Date.now() - Date.parse(presence.updated_at) < 90000);
-        const room: Room =
-          online && presence?.room in roomNames ? presence.room : "office";
-        const count = counters[room] ?? 0;
-        counters[room] = count + 1;
-        const ownAgents = r.robot
-          ? data.agents
-              .filter((a: Item) => a.owner_id === r.ownerId)
-              .findIndex((a: Item) => a.id === r.id)
-          : 0;
+        const sampleRoom = demo ? demoRoomFor(r.id, demoPhase) : undefined;
+        const presence = sampleRoom
+          ? { ...reportedPresence, room: sampleRoom }
+          : reportedPresence;
+        const { room, status, activity } = sceneStateFor(
+          { robot: r.robot, last_seen: r.last_seen, status: r.status },
+          presence,
+          { sample: demo, working: r.id === ownId && ownWorking },
+        );
+        if (!roomSeats.has(room)) roomSeats.set(room, new Map());
+        const count = reserveRoomSeat(roomSeats.get(room)!, r.id);
         return {
           ...r,
+          office,
+          officePage: Math.floor(officeIndex / 3),
           self: r.id === ownId,
           room,
-          status: !online ? "offline" : (r.status ?? "idle"),
-          activity: interactionFor(
-            room,
-            online ? (r.status ?? "idle") : "offline",
-            r.id === ownId
-              ? ownWorking
-              : r.robot && ["working", "thinking"].includes(r.status),
-          ),
+          status,
+          activity,
           speakingUntil: Math.max(
             0,
             ...recentMessages
@@ -487,38 +580,32 @@ export default function HouseWorld({
               .map((m: Item) => Date.parse(m.created_at) + 8000),
           ),
           facing: assets
-            ? officeFacing(
-                room,
-                r.office,
-                room === "office" ? ownAgents : count,
-                r.robot,
-              )
+            ? officeFacing(room, office, count, r.robot, seatIndex)
             : undefined,
-          goal: (assets ? officeDestination : destination)(
-            room,
-            r.office,
-            room === "office" ? ownAgents : count,
-            r.robot,
-          ),
+          goal: assets
+            ? officeDestination(room, office, count, r.robot, seatIndex)
+            : destination(
+                room,
+                office,
+                count,
+                room === "office" ? seatIndex === 1 : r.robot,
+              ),
         } as Resident;
       })
-      .filter(
-        (r: Resident) =>
-          r.room !== "office" ||
-          Math.floor(
-            data.members.findIndex((m: Item) => m.id === r.ownerId) / 3,
-          ) === page,
-      );
+      .filter((r: Resident) => r.room !== "office" || r.officePage === page);
   }, [
     data.members,
     data.agents,
     data.presence,
     page,
     demo,
+    demoPhase,
     ownId,
     ownWorking,
     recentMessages,
     assets,
+    offices,
+    roomSeats,
   ]);
   const scale =
     Math.min(dimensions.width / worldWidth, dimensions.height / worldHeight) *
@@ -536,36 +623,11 @@ export default function HouseWorld({
   useEffect(() => {
     setPan((p) => limit(p));
   }, [scale, dimensions.width, dimensions.height]);
-  const focus = (point: Point) => {
-    setZoom(1.8);
-    const nextScale =
-      Math.min(dimensions.width / worldWidth, dimensions.height / worldHeight) *
-      1.8;
-    const maxX = Math.max(0, (worldWidth * nextScale - dimensions.width) / 2),
-      maxY = Math.max(0, (worldHeight * nextScale - dimensions.height) / 2);
-    setPan({
-      x: Math.max(
-        -maxX,
-        Math.min(
-          maxX,
-          (worldWidth / 2 - (point.x * worldWidth) / 100) * nextScale,
-        ),
-      ),
-      y: Math.max(
-        -maxY,
-        Math.min(
-          maxY,
-          (worldHeight / 2 - (point.y * worldHeight) / 100) * nextScale,
-        ),
-      ),
-    });
-  };
   const pointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest("button") || zoom === 1) return;
     drag.current = { x: event.clientX, y: event.clientY, pan };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
-  const person = residents.find((r: Resident) => r.id === selected);
   return (
     <section
       className={`house-world ${assets ? "licensed" : ""} ${compact && !expanded ? "compact" : ""} ${expanded ? "expanded" : ""}`}
@@ -661,7 +723,12 @@ export default function HouseWorld({
           }
         >
           {assets ? (
-            <OfficeScene assets={assets} paused={paused} reduced={reduced} />
+            <OfficeScene
+              assets={assets}
+              doors={doors}
+              paused={paused}
+              reduced={reduced}
+            />
           ) : (
             <img
               className="house-background"
@@ -673,11 +740,21 @@ export default function HouseWorld({
               draggable={false}
             />
           )}
-          {data.members
-            .slice(page * 3, page * 3 + 3)
-            .map((member: Item, i: number) => (
-              <button
-                key={member.id}
+          {visibleOffices.map((office, i) => {
+            const member = data.members.find(
+              (m: Item) => m.id === office.ownerId,
+            )!;
+            const label =
+              office.parts > 1
+                ? tr("{name} 的办公室 · {index}/{count}", {
+                    name: member.name,
+                    index: office.part,
+                    count: office.parts,
+                  })
+                : tr("{name} 的办公室", { name: member.name });
+            return (
+              <div
+                key={`${member.id}-${office.part}`}
                 className={`house-room office-${i} ${member.id === ownId ? "mine" : ""}`}
                 style={{
                   left: assets
@@ -685,152 +762,55 @@ export default function HouseWorld({
                     : `${[18.5, 50, 80.8][i]}%`,
                   top: assets ? `${208 / 5.28}%` : "29%",
                 }}
-                onClick={() => {
-                  setSelected(member.id);
-                  if (member.id === ownId) onRoom("office");
-                  else
-                    focus(
-                      (assets ? officeDestination : destination)(
-                        "office",
-                        i,
-                        0,
-                      ),
-                    );
-                }}
-                aria-label={tr("{name} 的办公室", { name: member.name })}
+                aria-label={label}
               >
                 <DoorOpen size={22} />
-                <span>{tr("{name} 的办公室", { name: member.name })}</span>
+                <span>
+                  {office.parts > 1
+                    ? `${member.name} · ${office.part}/${office.parts}`
+                    : label}
+                </span>
                 {member.id === ownId && <small>{tr("我的")}</small>}
-              </button>
-            ))}
-          <button
+              </div>
+            );
+          })}
+          <div
             className="house-room"
             style={{
               left: assets ? `${112 / 5.76}%` : "23.7%",
               top: assets ? `${285 / 5.28}%` : "51.5%",
             }}
-            onClick={() => onRoom("meeting")}
           >
             <UsersThree size={22} />
             {tr("会议室")}
-          </button>
-          <button
+          </div>
+          <div
             className="house-room"
             style={{
               left: assets ? `${508 / 5.76}%` : "77.6%",
               top: assets ? `${285 / 5.28}%` : "51.5%",
             }}
-            onClick={() => onRoom("library")}
           >
             <Books size={22} />
             {tr("资料室")}
-          </button>
-          <button
+          </div>
+          <div
             className="house-room"
             style={{
               left: assets ? `${330 / 5.76}%` : "50%",
               top: assets ? `${483 / 5.28}%` : "83%",
             }}
-            onClick={() => onRoom("commons")}
           >
             <HouseLine size={22} />
             {tr("接待区")}
-          </button>
-          {data.members
-            .slice(page * 3, page * 3 + 3)
-            .flatMap((member: Item, i: number) =>
-              [0, 1].map((d) => (
-                <button
-                  key={`${member.id}-${d}`}
-                  className="house-object desk-object"
-                  style={{
-                    left: assets
-                      ? `${officeSeats[i][d].x / 5.76}%`
-                      : `${[18.5, 50, 80.8][i] + (d ? 4.7 : -4.2)}%`,
-                    top: assets
-                      ? `${(officeSeats[i][d].y - 30) / 5.28}%`
-                      : "13%",
-                  }}
-                  aria-label={tr("使用 {name} 的工位", { name: member.name })}
-                  onClick={() => {
-                    setSelected(member.id);
-                    if (member.id === ownId) onRoom("office");
-                    else
-                      focus(
-                        (assets ? officeDestination : destination)(
-                          "office",
-                          i,
-                          0,
-                        ),
-                      );
-                  }}
-                >
-                  <Monitor size={28} />
-                </button>
-              )),
-            )}
-          <button
-            className="house-object meeting-object"
-            style={
-              assets
-                ? {
-                    left: "22.9167%",
-                    top: `${384 / 5.28}%`,
-                    width: 144,
-                    height: 240,
-                  }
-                : undefined
-            }
-            aria-label={tr("在会议桌旁入座")}
-            onClick={() => onRoom("meeting")}
-          >
-            <UsersThree size={28} />
-          </button>
-          <button
-            className="house-object archive-object"
-            style={
-              assets
-                ? {
-                    left: "79.5%",
-                    top: `${337 / 5.28}%`,
-                    width: 360,
-                    height: 100,
-                  }
-                : undefined
-            }
-            aria-label={tr("查阅项目档案")}
-            onClick={() => onRoom("library")}
-          >
-            <Books size={28} />
-          </button>
-          {assets && (
-            <button
-              className="house-object reading-object"
-              style={{
-                left: `${452 / 5.76}%`,
-                top: `${398 / 5.28}%`,
-                width: 144,
-                height: 96,
-              }}
-              aria-label={tr("在资料桌旁查阅")}
-              onClick={() => onRoom("library")}
-            >
-              <Books size={28} />
-            </button>
-          )}
+          </div>
           {residents.map((resident: Resident) => (
             <Walker
               key={resident.id}
               resident={resident}
               paused={paused}
               reduced={reduced}
-              selected={selected === resident.id}
-              select={() =>
-                setSelected((previous) =>
-                  previous === resident.id ? null : resident.id,
-                )
-              }
+              doors={doors}
             />
           ))}
         </div>
@@ -838,66 +818,6 @@ export default function HouseWorld({
           <div className="house-scene-loading" role="status">
             <HouseLine size={22} />
             {tr("正在加载办公室场景…")}
-          </div>
-        )}
-        {person && (
-          <div className="house-inspector">
-            <div>
-              <SceneSprite robot={person.robot} skin={person.skin} size={38} />
-              <span>
-                <b>{person.name}</b>
-                <small>
-                  {tr(roomNames[person.room])}
-                  {person.status === "offline" ? ` · ${tr("未连接")}` : ""}
-                </small>
-              </span>
-            </div>
-            <button
-              className="text-button"
-              onClick={() => {
-                if (person.robot)
-                  onAgent(data.agents.find((a: Item) => a.id === person.id));
-                else if (person.id === ownId) onRoom("office");
-                else focus(person.goal);
-              }}
-            >
-              {tr(
-                person.robot
-                  ? "查看 AI"
-                  : person.id === ownId
-                    ? "回到办公室"
-                    : "定位工位",
-              )}
-            </button>
-            {person.robot && onDemoMove && (
-              <div
-                className="demo-actor-controls"
-                role="group"
-                aria-label={tr("演示机器人操作")}
-              >
-                <button
-                  title={tr("回到工位")}
-                  aria-label={tr("让 {name} 回到工位", { name: person.name })}
-                  onClick={() => onDemoMove(person.id, "office")}
-                >
-                  <Monitor size={14} />
-                </button>
-                <button
-                  title={tr("前往会议桌")}
-                  aria-label={tr("让 {name} 前往会议桌", { name: person.name })}
-                  onClick={() => onDemoMove(person.id, "meeting")}
-                >
-                  <UsersThree size={14} />
-                </button>
-                <button
-                  title={tr("查阅资料柜")}
-                  aria-label={tr("让 {name} 查阅资料柜", { name: person.name })}
-                  onClick={() => onDemoMove(person.id, "library")}
-                >
-                  <Books size={14} />
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -912,12 +832,14 @@ export default function HouseWorld({
         )}
         <span>
           {tr(
-            zoom > 1
-              ? "拖动查看 · 点击物品使用"
-              : "点击工位、会议桌或资料柜，与场景互动",
+            demo
+              ? "自动演示 · 人物按示例状态移动"
+              : zoom > 1
+                ? "拖动查看 · 状态自动同步"
+                : "人物与 AI 状态自动同步",
           )}
         </span>
-        {data.members.length > 3 && (
+        {offices.length > 3 && (
           <div>
             <button
               className="icon-button"
@@ -928,12 +850,13 @@ export default function HouseWorld({
               <CaretLeft size={16} />
             </button>
             <span>
-              {page * 3 + 1}–{Math.min(page * 3 + 3, data.members.length)}
+              {page * 3 + 1}–{Math.min(page * 3 + 3, offices.length)} /{" "}
+              {offices.length}
             </span>
             <button
               className="icon-button"
               aria-label={tr("下一组办公室")}
-              disabled={(page + 1) * 3 >= data.members.length}
+              disabled={(page + 1) * 3 >= offices.length}
               onClick={() => setPage((p) => p + 1)}
             >
               <CaretRight size={16} />
@@ -945,15 +868,15 @@ export default function HouseWorld({
           onClick={() => {
             const index = Math.max(
               0,
-              data.members.findIndex((m: Item) => m.id === ownId),
+              offices.findIndex((office) => office.ownerId === ownId),
             );
             setPage(Math.floor(index / 3));
-            setSelected(ownId);
-            onRoom("office");
+            setZoom(1);
+            setPan({ x: 0, y: 0 });
           }}
         >
           <DoorOpen size={15} />
-          {tr("回到我的办公室")}
+          {tr("查看我的办公室")}
         </button>
       </footer>
     </section>

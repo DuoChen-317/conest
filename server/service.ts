@@ -1,6 +1,8 @@
 import { EventEmitter } from "node:events";
 import { z } from "zod";
 import { Store, id, now, hash, secret, type Row } from "./store.ts";
+import { Collaboration } from "./collaboration.ts";
+import { Conversations } from "./conversations.ts";
 
 export type Actor = {
   id: string;
@@ -27,10 +29,23 @@ export function requireThat(
 const text = z.string().trim().min(1).max(12000);
 export class Service {
   events = new EventEmitter();
+  collaboration = new Collaboration(this);
+  conversations = new Conversations(this);
   constructor(public store: Store) {
     this.events.setMaxListeners(0);
   }
   project(actor: Actor, projectId: string) {
+    if (actor.type === "agent")
+      requireThat(
+        this.store.one(
+          "SELECT 1 FROM agents WHERE id=? AND project_id=? AND owner_id=? AND revoked=0",
+          actor.id,
+          actor.projectId,
+          actor.userId,
+        ),
+        401,
+        "Invalid AI credential",
+      );
     requireThat(
       actor.type !== "agent" || actor.projectId === projectId,
       403,
@@ -157,13 +172,15 @@ export class Service {
         projectId,
       ),
       agents: s.all(
-        "SELECT a.id,a.name,a.model,a.owner_id,a.status,a.last_seen,u.name owner_name FROM agents a JOIN users u ON u.id=a.owner_id WHERE a.project_id=? AND a.revoked=0 ORDER BY a.created_at",
+        "SELECT a.id,a.name,a.model,a.owner_id,a.status,a.last_seen,u.name owner_name,COALESCE(pref.meeting_policy,'ask') meeting_policy,COALESCE(pref.allow_direct,0) allow_direct FROM agents a JOIN users u ON u.id=a.owner_id LEFT JOIN agent_preferences pref ON pref.agent_id=a.id WHERE a.project_id=? AND a.revoked=0 ORDER BY a.created_at",
         projectId,
       ),
       meetings: s.all(
-        `SELECT m.*, (SELECT count(*) FROM participants p WHERE p.meeting_id=m.id) agent_count FROM meetings m WHERE project_id=? ${actor.type === "agent" ? "AND EXISTS(SELECT 1 FROM participants pp WHERE pp.meeting_id=m.id AND pp.agent_id=?)" : ""} ORDER BY created_at DESC`,
+        `SELECT m.*, (SELECT count(*) FROM meeting_invitations i WHERE i.meeting_id=m.id AND i.actor_type='agent') agent_count FROM meetings m WHERE project_id=? ${actor.type === "agent" ? "AND EXISTS(SELECT 1 FROM participants pp WHERE pp.meeting_id=m.id AND pp.agent_id=?)" : ""} ORDER BY created_at DESC`,
         ...(actor.type === "agent" ? [projectId, actor.id] : [projectId]),
       ),
+      meetingInvitations: this.collaboration.participants(actor, projectId),
+      conversations: this.conversations.list(actor, projectId),
       tasks: s.all(
         "SELECT * FROM tasks WHERE project_id=? ORDER BY created_at DESC",
         projectId,
@@ -196,6 +213,7 @@ export class Service {
       );
       const meeting = this.meeting(actor, projectId, data.meetingId);
       requireThat(meeting.status !== "ended", 409, "Meeting has ended");
+      this.collaboration.recordAttendance(actor, data.meetingId!);
     }
     const meetingId = data.room === "meeting" ? data.meetingId! : null;
     const previous = this.store.one(
@@ -302,6 +320,10 @@ export class Service {
       "You can only disconnect your own AI",
     );
     this.store.run("UPDATE agents SET revoked=1 WHERE id=?", agentId);
+    this.store.run(
+      "UPDATE agent_requests SET status='failed' WHERE agent_id=? AND status IN ('queued','processing')",
+      agentId,
+    );
     this.emit(projectId, "agent.revoked", { agentId, actorName: actor.name });
   }
   createMeeting(actor: Actor, projectId: string, input: unknown) {
@@ -312,6 +334,7 @@ export class Service {
         title: z.string().trim().min(1).max(160),
         agenda: z.string().trim().max(12000).default(""),
         agentIds: z.array(z.string()).max(30).default([]),
+        memberIds: z.array(z.string()).max(100).default([]),
         maxTurns: z.number().int().min(1).max(100).default(12),
       })
       .parse(input);
@@ -337,30 +360,10 @@ export class Service {
         data.maxTurns,
         now(),
       );
-      for (const agentId of new Set(data.agentIds))
-        this.store.run(
-          "INSERT INTO participants VALUES(?,?)",
-          meetingId,
-          agentId,
-        );
+      this.collaboration.addInvitations(actor, projectId, meetingId, data);
       this.setPresence(actor, projectId, { room: "meeting", meetingId });
-      for (const agentId of new Set(data.agentIds)) {
-        const agent = this.store.one(
-          "SELECT * FROM agents WHERE id=?",
-          agentId,
-        )!;
-        this.setPresence(
-          {
-            id: agent.id,
-            userId: agent.owner_id,
-            name: agent.name,
-            type: "agent",
-            projectId,
-          },
-          projectId,
-          { room: "meeting", meetingId },
-        );
-      }
+      // An invitation is not attendance. AI presence changes when its client
+      // reads/sends meeting messages or explicitly reports its current room.
       this.emit(projectId, "meeting.started", {
         meetingId,
         title: data.title,
@@ -394,6 +397,10 @@ export class Service {
     );
     if (data.status === "ended") {
       this.store.run(
+        "UPDATE agent_requests SET status='failed' WHERE meeting_id=? AND status IN ('queued','processing')",
+        meetingId,
+      );
+      this.store.run(
         "UPDATE presence SET room='office',meeting_id=NULL,updated_at=? WHERE project_id=? AND meeting_id=? AND room='meeting'",
         now(),
         projectId,
@@ -416,17 +423,33 @@ export class Service {
       this.meeting(actor, projectId, meetingId).status !== "ended"
     )
       this.setPresence(actor, projectId, { room: "meeting", meetingId });
-    return this.store.all(
-      "SELECT * FROM (SELECT * FROM messages WHERE project_id=? AND meeting_id IS ? ORDER BY rowid DESC LIMIT 200) ORDER BY created_at",
-      projectId,
-      meetingId ?? null,
-    );
+    return this.store
+      .all(
+        `SELECT m.*,(SELECT json_group_array(agent_id) FROM message_targets t WHERE t.message_id=m.id) recipient_agent_ids,(SELECT json_group_array(json_object('id',r.id,'agentId',r.agent_id,'status',r.status)) FROM agent_requests r WHERE r.message_id=m.id) ai_requests FROM (SELECT * FROM messages WHERE project_id=? AND meeting_id IS ? ORDER BY rowid DESC LIMIT 200) m ORDER BY created_at`,
+        projectId,
+        meetingId ?? null,
+      )
+      .map((m): Row => ({
+        ...m,
+        recipient_agent_ids: JSON.parse(m.recipient_agent_ids),
+        ai_requests: JSON.parse(m.ai_requests),
+      }));
   }
   sendMessage(actor: Actor, projectId: string, input: unknown) {
     this.project(actor, projectId);
     const data = z
-      .object({ body: text, meetingId: z.string().optional() })
+      .object({
+        body: text,
+        meetingId: z.string().optional(),
+        recipientAgentIds: z.array(z.string()).max(30).default([]),
+      })
       .parse(input);
+    this.conversations.targets(
+      actor,
+      projectId,
+      data.meetingId,
+      data.recipientAgentIds,
+    );
     if (data.meetingId) {
       const meeting = this.meeting(actor, projectId, data.meetingId, true);
       if (actor.type === "agent") {
@@ -456,6 +479,20 @@ export class Service {
       "INSERT INTO messages VALUES(?,?,?,?,?,?,?,?)",
       ...Object.values(message),
     );
+    for (const agentId of new Set(data.recipientAgentIds)) {
+      this.store.run(
+        "INSERT INTO message_targets VALUES(?,?)",
+        message.id,
+        agentId,
+      );
+      this.conversations.enqueue(
+        projectId,
+        agentId,
+        message.id,
+        null,
+        data.meetingId!,
+      );
+    }
     this.setPresence(
       actor,
       projectId,
@@ -463,7 +500,10 @@ export class Service {
         ? { room: "meeting", meetingId: data.meetingId }
         : { room: "commons" },
     );
-    this.emit(projectId, "message.created", message);
+    this.emit(projectId, "message.created", {
+      ...message,
+      recipientAgentIds: data.recipientAgentIds,
+    });
     return message;
   }
   proposeDecision(actor: Actor, projectId: string, input: unknown) {
@@ -592,6 +632,11 @@ export class Service {
     );
     requireThat(task, 404, "Task not found");
     if (actor.type === "agent") {
+      requireThat(
+        task.status !== "done",
+        403,
+        "Only a person can reopen verified work",
+      );
       requireThat(
         task.status !== "proposed",
         403,
@@ -787,14 +832,15 @@ export class Service {
     this.project(actor, projectId);
     const meetingFilter =
       actor.type === "agent"
-        ? `AND (kind NOT IN ('message.created','meeting.started','meeting.status','presence.changed') OR COALESCE(json_extract(payload,'$.meetingId'),json_extract(payload,'$.meeting_id')) IS NULL OR EXISTS(SELECT 1 FROM participants pp WHERE pp.meeting_id=COALESCE(json_extract(payload,'$.meetingId'),json_extract(payload,'$.meeting_id')) AND pp.agent_id=?))`
+        ? `AND (kind NOT IN ('message.created','meeting.started','meeting.status','presence.changed','meeting.ready','meeting.responded') OR COALESCE(json_extract(payload,'$.meetingId'),json_extract(payload,'$.meeting_id')) IS NULL OR EXISTS(SELECT 1 FROM participants pp WHERE pp.meeting_id=COALESCE(json_extract(payload,'$.meetingId'),json_extract(payload,'$.meeting_id')) AND pp.agent_id=?)) AND (kind<>'meeting.ready' OR json_extract(payload,'$.agentId')=?)`
         : "";
     const params =
       actor.type === "agent"
-        ? [projectId, after, actor.userId, actor.id, limit]
-        : [projectId, after, actor.userId, limit];
+        ? [projectId, after, actor.userId, actor.id, actor.id, actor.id, limit]
+        : [projectId, after, actor.userId, actor.userId, actor.userId, limit];
+    const directFilter = `AND (kind<>'direct.updated' OR EXISTS(SELECT 1 FROM direct_conversations c JOIN agents a ON a.id=c.agent_id WHERE c.id=json_extract(payload,'$.conversationId') AND ${actor.type === "agent" ? "c.agent_id=?" : "(c.user_id=? OR a.owner_id=?)"}))`;
     const rows = this.store.all(
-      `SELECT * FROM events WHERE project_id=? AND id>? AND (owner_id IS NULL OR owner_id=?) ${meetingFilter} ORDER BY id ${recent ? "DESC" : "ASC"} LIMIT ?`,
+      `SELECT * FROM events WHERE project_id=? AND id>? AND (owner_id IS NULL OR owner_id=?) ${meetingFilter} ${directFilter} ORDER BY id ${recent ? "DESC" : "ASC"} LIMIT ?`,
       ...params,
     );
     return rows.map((r) => ({ ...r, payload: JSON.parse(r.payload) }));
@@ -813,21 +859,30 @@ export class Service {
       signal?.aborted
     )
       return this.readEvents(actor, projectId, after);
-    await new Promise<void>((resolve) => {
-      const finish = () => {
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
         clearTimeout(timer);
         this.events.off(projectId, onEvent);
         signal?.removeEventListener("abort", finish);
+      };
+      const finish = () => {
+        cleanup();
         resolve();
       };
       const onEvent = () => {
-        if (this.readEvents(actor, projectId, after).length) finish();
+        try {
+          if (this.readEvents(actor, projectId, after).length) finish();
+        } catch (error) {
+          cleanup();
+          reject(error);
+        }
       };
       const timer = setTimeout(finish, Math.min(seconds, 25) * 1000);
       this.events.on(projectId, onEvent);
       signal?.addEventListener("abort", finish, { once: true });
       onEvent();
     });
+    if (signal?.aborted) return [];
     return this.readEvents(actor, projectId, after);
   }
   invite(actor: Actor, projectId: string) {

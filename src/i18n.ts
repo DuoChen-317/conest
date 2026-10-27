@@ -4,12 +4,9 @@ import zh from "./locales/zh-CN.json";
 
 export type Locale = "zh-CN" | "en";
 const storageKey = "conest.locale";
-export function resolveLocale(
-  saved: string | null,
-  languages: readonly string[],
-): Locale {
+export function resolveLocale(saved: string | null): Locale {
   if (saved === "zh-CN" || saved === "en") return saved;
-  return languages[0]?.toLowerCase().startsWith("zh") ? "zh-CN" : "en";
+  return "en";
 }
 function initialLocale(): Locale {
   if (typeof navigator === "undefined") return "en";
@@ -19,7 +16,7 @@ function initialLocale(): Locale {
   } catch {
     /* Storage may be disabled. */
   }
-  return resolveLocale(saved, navigator.languages);
+  return resolveLocale(saved);
 }
 let locale = initialLocale();
 const listeners = new Set<() => void>();
@@ -69,7 +66,7 @@ if (typeof window !== "undefined") {
   updateDocument();
   window.addEventListener("storage", (event) => {
     if (event.key === storageKey)
-      setLocale(resolveLocale(event.newValue, navigator.languages));
+      setLocale(resolveLocale(event.newValue));
   });
 }
 

@@ -110,9 +110,13 @@ while (!controller.signal.aborted) {
     for (const event of events) {
       if (controller.signal.aborted) break;
       const relevant =
-        ["message.created", "meeting.started", "office.message"].includes(
+        ["message.created", "meeting.ready", "office.message"].includes(
           event.kind,
-        ) && event.payload.actor_id !== actor.id;
+        ) &&
+        event.payload.actor_id !== actor.id &&
+        !event.payload.recipientAgentIds?.length &&
+        (!["message.created", "office.message"].includes(event.kind) ||
+          event.payload.actor_type === "human");
       console.log(
         JSON.stringify({
           id: event.id,
@@ -124,6 +128,18 @@ while (!controller.signal.aborted) {
       );
       if (handler && relevant) {
         const context = await request(endpoint);
+        // Public input must not inherit the owner's private office or direct chats.
+        // The full snapshot remains available only for the owner's office workflow.
+        if (event.kind !== "office.message") {
+          context.files = context.files.filter(
+            (file: any) => file.visibility === "shared",
+          );
+          context.activity = context.activity.filter(
+            (item: any) =>
+              item.owner_id === null && item.kind !== "direct.updated",
+          );
+          context.conversations = [];
+        }
         for (const action of await handle({ actor, event, project: context })) {
           if (
             event.kind === "office.message" &&

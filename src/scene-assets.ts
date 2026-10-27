@@ -8,6 +8,36 @@ export type SceneAssets = {
   credit: string;
 };
 let cached: Promise<SceneAssets | null> | undefined;
+async function transparentFurnitureShadow(image: HTMLImageElement) {
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(image, 0, 0);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  let changed = false;
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    // Office furniture, library shelves and the animated cart share opaque #a79796 ground shadows.
+    // Match the pack's official Black Shadow atlas: black at alpha 30/255.
+    // Keep every other material color, transparent margin and object pixel intact.
+    if (
+      pixels.data[i] === 167 &&
+      pixels.data[i + 1] === 151 &&
+      pixels.data[i + 2] === 150 &&
+      pixels.data[i + 3] === 255
+    ) {
+      pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = 0;
+      pixels.data[i + 3] = 30;
+      changed = true;
+    }
+  }
+  if (!changed) return image;
+  ctx.putImageData(pixels, 0, 0);
+  const rendered = new Image();
+  rendered.src = canvas.toDataURL();
+  await rendered.decode();
+  return rendered;
+}
 function load(): Promise<SceneAssets | null> {
   return (cached ??= fetch("/scene-assets/manifest.json")
     .then(async (response) => {
@@ -45,7 +75,9 @@ function load(): Promise<SceneAssets | null> {
             throw new Error(
               `Scene image dimensions do not match manifest: ${name}`,
             );
-          images[name] = image;
+          images[name] = /^(?:office(?:-\d+)?|library|cart)\.png$/.test(name)
+            ? await transparentFurnitureShadow(image)
+            : image;
         }),
       );
       if (

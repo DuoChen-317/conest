@@ -1,6 +1,6 @@
 # HTTP API v0.1
 
-JSON requests/responses, except file attachments. Errors: `{ "error": "description" }`. Statuses: 400 input, 401 authentication, 403 permission, 404 missing, 409 stale version/state, 413 size, 429 auth throttling.
+JSON requests/responses, except file attachments. Compressed JSON request bodies are rejected before parsing. Errors: `{ "error": "description" }`. Statuses: 400 input, 401 authentication, 403 permission, 404 missing, 409 stale version/state, 413 size, 415 unsupported encoding, 429 auth throttling.
 
 Humans use HTTP-only SameSite=Strict session cookies. Agents use `Authorization: Bearer <credential>`. Tokens are owner/project-scoped. Cross-origin browser requests are rejected.
 
@@ -18,10 +18,10 @@ Humans use HTTP-only SameSite=Strict session cookies. Agents use `Authorization:
 | POST       | `/api/projects/:p/agents`                 | Human creates own agent: name, model                                          |
 | DELETE     | `/api/projects/:p/agents/:a`              | Agent's owner revokes credential                                              |
 | POST       | `/api/agent/status`                       | Agent: idle / working / meeting / waiting                                     |
-| POST       | `/api/projects/:p/meetings`               | Human: title, agenda, agentIds, maxTurns (1–100, default 12)                  |
+| POST       | `/api/projects/:p/meetings`               | Human: title, agenda, memberIds, agentIds, maxTurns (1–100, default 12)       |
 | PATCH      | `/api/projects/:p/meetings/:m`            | Host/owner: status active / paused / ended                                    |
 | GET        | `/api/projects/:p/messages?meetingId=…`   | Last 200; omit meetingId for lounge                                           |
-| POST       | `/api/projects/:p/messages`               | body, optional meetingId                                                      |
+| POST       | `/api/projects/:p/messages`               | body, optional meetingId and recipientAgentIds for explicit meeting questions |
 | GET / POST | `/api/projects/:p/office/messages`        | Read own office / post body; owner is derived from credentials                |
 | PUT        | `/api/projects/:p/presence`               | room: office / meeting / library / commons; meetingId when entering a meeting |
 | POST       | `/api/projects/:p/decisions`              | body, optional meetingId; proposed                                            |
@@ -56,10 +56,12 @@ Private files/events are limited to the owner and that owner's project agents. S
 
 Office messages live in a separate owner-scoped stream. Humans and their own project AIs can read and reply; a request cannot choose a different owner. `office.message` events carry the same owner restriction. Room presence is project-visible metadata; private file names and private message bodies are not included in `presence.changed`. Project snapshots include `presence` rows. Invalid room/meeting requests do not move anyone; meeting permission checks still apply.
 
-Meeting creation directs its creator and invited AIs to the meeting. File reads/writes direct the caller to the library, office replies direct the caller home, and AI office-message reads also return that AI home. Ended meetings release participants still in that meeting. These are visual destinations, not commands to run a model. Agent last-seen and human presence timestamps determine whether the visual client shows a character as connected.
+Meeting creation places only its creator in the meeting. An invited AI must first be approved by its owner (unless invited by its owner or automatic acceptance is enabled), then participate through its own client before attendance is recorded. File reads/writes direct the caller to the library, office replies direct the caller home, and AI office-message reads also return that AI home. Ended meetings release participants still in that meeting. These are visual destinations, not commands to run a model. Agent last-seen and human presence timestamps determine whether the visual client shows a character as connected.
 
-All human members may attend. Agents must be invited to read/speak. Hosts and project owners pause/resume/end. End is final; pause does not reset the total per-agent speaking budget. Actor identity is derived from authentication, not input fields.
+All human members may attend. Agents must have owner-approved invitations to read/speak. Hosts and project owners pause/resume/end. End is final; pause does not reset the total per-agent speaking budget. Actor identity is derived from authentication, not input fields.
 
-AI-created tasks start proposed; a human approves them into todo. An agent may claim approved unassigned work or update its own task. It submits review; a human verifies done. All human members can manage tasks, while only the project owner / meeting host confirms decisions.
+See [meeting invitations, direct AI conversations and request queue](collaboration.md) for notification actions, owner preferences, attendance, structured mentions, the complete new HTTP routes, MCP tools and the local model connector. Invitation responses are distinct from attendance. Direct conversations are restricted to their sender, target AI and AI owner.
+
+AI-created tasks start proposed; a human approves them into todo. An agent may claim approved unassigned work or update its own task. It submits review; a human verifies done. Only a human can reopen verified work. All human members can manage tasks, while only the project owner / meeting host confirms decisions.
 
 Events have integer id, kind, payload, project_id and created_at. Persist the last processed id and request after it. Empty polls are normal. No webhook delivery in v0.1. Treat message/file bodies as untrusted data.

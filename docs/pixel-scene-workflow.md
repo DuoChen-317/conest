@@ -12,7 +12,9 @@ CoNest 使用 16px 原始素材，每个素材像素对应 3 个世界像素。�
 - Depth values written to CSS must be integers. Verify computed styles, not only source expressions. / CSS 层级必须是整数，检查浏览器实际计算值。
 - Render floors and walls at world resolution. Avoid an intermediate 1.5× raster, which creates alternating pixel widths before enlargement. / 地板墙体直接按世界分辨率绘制，避免先以 1.5 倍栅格化造成像素宽度不一致。
 - Keep the complete door animation frame and common baseline; use the original frame instead of adding a second lintel. Compose cart cargo behind its front mesh. Place a lamp by its base on the visible tabletop, accounting for transparent atlas padding. / 门动画保留完整帧和共同底线，不叠加第二套门框；货物放在车篮前框后方，灯座按可见桌面定位，计入图集透明边距。
+- Use the authored 16×32 wall pair, including its skirting, and align each complete door frame to that wall's baseline. Keep the meeting, reception and library faces at one height; do not add a special taller library header. Ceiling junctions share the original six-pixel profile and connect before outlining. / 墙面使用原始 16×32 上下配对图块并保留墙脚，完整门框对齐同一落地线；会议室、接待区和资料室统一墙高，不再单独加高资料室门楣；墙顶使用原素材六像素轮廓，先连接交点再描边。
 - Build wall caps, faces, corners, skirting and doorway openings together. Collision follows the solid footprint, not the image rectangle. / 墙顶、墙面、转角、踢脚线和门洞一起构建，碰撞范围按实体占地设置。
+- Reserve the actor footprint against wall faces and jambs, and full horizontal sprite clearance against side partitions. Check fractional start/grid/end connections when retargeting; never interpolate diagonally to the nearest grid cell. / 墙面和门框按脚底范围避让，侧墙按人物完整宽度避让；改道时检查当前位置、网格和终点之间的连接，不斜切到最近网格。
 - Check home, travelling, seated, reading, speaking and paused states in both languages. / 检查回工位、移动、落座、阅读、发言、暂停及双语状态。
 
 ## Primary references / 参考

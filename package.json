@@ -13,15 +13,19 @@
     "start": "NODE_ENV=production tsx server/index.ts",
     "test": "tsx --test tests/*.test.ts",
     "check": "tsc --noEmit",
-    "agent": "tsx examples/agent.ts"
+    "agent": "tsx examples/agent.ts",
+    "connector": "tsx examples/connector.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.32.1",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@phosphor-icons/react": "^2.1.10",
     "express": "^5.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
+  },
+  "overrides": {
+    "body-parser": "^2.4.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

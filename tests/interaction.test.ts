@@ -1,6 +1,72 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { humanPose, interactionFor } from "../src/interaction.ts";
+import {
+  humanPose,
+  interactionFor,
+  sceneStateFor,
+} from "../src/interaction.ts";
+
+test("scene residents follow reported room and work status, and stale reports cannot show active work", () => {
+  const now = Date.parse("2026-10-26T03:00:00Z");
+  const recent = new Date(now - 10_000).toISOString();
+  const stale = new Date(now - 90_001).toISOString();
+  const robot = { robot: true, status: "working", last_seen: recent };
+  assert.equal(
+    sceneStateFor(robot, { room: "office" }, { now }).activity,
+    "typing",
+  );
+  assert.equal(
+    sceneStateFor(robot, { room: "library" }, { now }).activity,
+    "reading",
+  );
+  assert.equal(
+    sceneStateFor(robot, { room: "meeting" }, { now }).activity,
+    "listening",
+  );
+  assert.equal(
+    sceneStateFor({ ...robot, status: "idle" }, { room: "office" }, { now })
+      .activity,
+    "seated",
+  );
+  for (const last_seen of [null, stale, "invalid"]) {
+    const state = sceneStateFor(
+      { ...robot, last_seen },
+      { room: "meeting" },
+      { now },
+    );
+    assert.equal(state.status, "offline");
+    assert.equal(state.room, "office");
+    assert.equal(state.activity, "idle");
+  }
+  assert.equal(
+    sceneStateFor(robot, { room: "unknown" }, { now }).room,
+    "office",
+  );
+});
+
+test("human typing needs current presence and an actual composer signal; examples require explicit sample mode", () => {
+  const now = Date.parse("2026-10-26T03:00:00Z");
+  const presence = { room: "office", updated_at: new Date(now).toISOString() };
+  assert.equal(
+    sceneStateFor({ robot: false }, presence, { now, working: true }).activity,
+    "typing",
+  );
+  assert.equal(
+    sceneStateFor({ robot: false }, presence, { now }).activity,
+    "seated",
+  );
+  assert.equal(
+    sceneStateFor({ robot: false }, undefined, { now, working: true }).status,
+    "offline",
+  );
+  assert.equal(
+    sceneStateFor({ robot: true, status: "working" }, undefined, {
+      now,
+      sample: true,
+    }).activity,
+    "typing",
+  );
+});
 
 test("work actions follow presence and actual work state; disconnected actors never pretend to work", () => {
   assert.equal(interactionFor("office", "idle", false), "seated");

@@ -18,7 +18,6 @@ import {
   X,
   PaperPlaneTilt,
   Robot,
-  Copy,
   Check,
   SignOut,
   CaretDown,
@@ -39,9 +38,20 @@ import {
   DotsThree,
   PlugsConnected,
   MagnifyingGlass,
+  Bell,
 } from "@phosphor-icons/react";
+import {
+  AgentPreferences,
+  DirectConversation,
+  InvitationInbox,
+  InvitationRecipients,
+  MeetingParticipants,
+  requestLabels,
+} from "./CollaborationUI";
 import { api, createDemoData, decodeText, time, type Item } from "./api";
 import HouseWorld, { SceneSprite } from "./HouseWorld";
+import CopyBox from "./CopyBox";
+import ConnectorSetup from "./ConnectorSetup";
 import type { Room } from "./house";
 import {
   tr,
@@ -104,6 +114,9 @@ const activityLabels: Item = {
   "member.joined": "加入了项目",
   "meeting.started": "发起了会议",
   "meeting.status": "更新了会议",
+  "meeting.invited": "发送了会议邀请",
+  "meeting.responded": "回应了会议邀请",
+  "meeting.ready": "允许 AI 参会",
   "message.created": "发送了消息",
   "decision.proposed": "提出了方案",
   "decision.reviewed": "确认了讨论结果",
@@ -112,6 +125,7 @@ const activityLabels: Item = {
   "file.updated": "提交了文件",
   "presence.changed": "更新了所在房间",
   "office.message": "在办公室发送了消息",
+  "direct.updated": "更新了 AI 对话",
 };
 function agentOnline(agent: Item) {
   return (
@@ -129,22 +143,20 @@ function Badge({ status }: { status: string }) {
 function Avatar({
   index = 0,
   small = false,
+  size = small ? 34 : 48,
 }: {
   index?: number;
   small?: boolean;
+  size?: number;
 }) {
   const i = ((index % 6) + 6) % 6;
   return (
     <span
       aria-hidden="true"
       className={`avatar ${small ? "small" : ""}`}
-      style={{ background: "none" }}
+      style={{ background: "none", width: size, height: size }}
     >
-      <SceneSprite
-        robot={i % 2 === 1}
-        skin={Math.floor(i / 2)}
-        size={small ? 34 : 48}
-      />
+      <SceneSprite robot={i % 2 === 1} skin={Math.floor(i / 2)} size={size} />
     </span>
   );
 }
@@ -409,7 +421,6 @@ export default function App() {
     [messages, setMessages] = useState<Item[]>([]);
   const [ownWorking, setOwnWorking] = useState(false);
   const [chatScope, setChatScope] = useState<"office" | "lounge">("office");
-  const [demoPresence, setDemoPresence] = useState<Item[]>([]);
   const [toast, setToast] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -422,12 +433,28 @@ export default function App() {
     [search, setSearch] = useState("");
   const [invite] = useState(new URLSearchParams(location.search).get("invite"));
   const [selectedMember, setSelectedMember] = useState<Item | null>(null);
+  const [notifications, setNotifications] = useState<Item[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Item | null>(
+    null,
+  );
+  const [mentionAgentId, setMentionAgentId] = useState("");
   const notify = (message: string) => setToast(message);
   const close = useCallback(() => {
     setModal(null);
     setCredential(null);
     setSelectedMember(null);
+    setSelectedConversation(null);
   }, []);
+  useEffect(() => {
+    // A different person must never inherit the previous person's meeting or chat.
+    setTab("office");
+    setMeetingId(null);
+    setMessages([]);
+    setChatScope("office");
+    setMentionAgentId("");
+    setOwnWorking(false);
+    close();
+  }, [user?.id, demo, close]);
   const refresh = useCallback(async () => {
     if (demo) {
       setData(createDemoData(locale));
@@ -442,6 +469,26 @@ export default function App() {
       list.some((p) => p.id === previous) ? previous : (list[0]?.id ?? ""),
     );
   }, []);
+  const loadNotifications = useCallback(async () => {
+    if (user && !demo) setNotifications(await api<Item[]>("/notifications"));
+  }, [user, demo]);
+  useEffect(() => {
+    setNotifications([]);
+    if (!user || demo) return;
+    let stopped = false;
+    const run = () =>
+      api<Item[]>("/notifications")
+        .then((items) => {
+          if (!stopped) setNotifications(items);
+        })
+        .catch(() => {});
+    void run();
+    const timer = setInterval(run, 4000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [user, demo]);
   useEffect(() => {
     api("/me")
       .then((r) => setUser(r.user))
@@ -570,57 +617,43 @@ export default function App() {
   const endpoint = `/projects/${projectId}`;
   const activeMeeting = data?.meetings.find((m: Item) => m.status !== "ended");
   const selectedMeeting = data?.meetings.find((m: Item) => m.id === meetingId);
+  const meetingInvitations = (data?.meetingInvitations ?? []).filter(
+    (i: Item) => i.meeting_id === meetingId,
+  );
+  const approvedMeetingAgents = (data?.agents ?? []).filter((a: Item) =>
+    meetingInvitations.some(
+      (i: Item) =>
+        i.actor_type === "agent" &&
+        i.actor_id === a.id &&
+        i.status === "accepted",
+    ),
+  );
+  const unreadInvitations = notifications.filter((i) => !i.seen_at).length;
+  const invitationReminder = notifications.find(
+    (i) =>
+      !i.seen_at &&
+      !i.deferred_at &&
+      i.status === "pending" &&
+      i.meeting_status !== "ended",
+  );
   const isOwner = data?.project.owner_id === user?.id;
+  useEffect(() => {
+    setMentionAgentId("");
+  }, [projectId, meetingId]);
   const locationRoom: Room =
     tab === "files"
       ? "library"
-      : tab === "meetings" && meetingId && selectedMeeting?.status !== "ended"
+      : tab === "meetings" &&
+          meetingId &&
+          selectedMeeting &&
+          selectedMeeting.status !== "ended"
         ? "meeting"
         : tab === "office" && chatScope === "lounge"
           ? "commons"
           : "office";
   useEffect(() => {
-    const actorId = demo ? "demo-human" : user?.id;
-    if (!actorId || (!demo && !projectId)) return;
-    if (demo) {
-      const timestamp = new Date().toISOString();
-      const records: Item[] = [
-        {
-          actor_id: actorId,
-          actor_type: "human",
-          room: locationRoom,
-          meeting_id: locationRoom === "meeting" ? meetingId : null,
-          updated_at: timestamp,
-        },
-      ];
-      if (locationRoom === "meeting")
-        for (const agent of data?.agents ?? [])
-          records.push({
-            actor_id: agent.id,
-            actor_type: "agent",
-            room: "meeting",
-            meeting_id: meetingId,
-            updated_at: timestamp,
-          });
-      if (locationRoom === "office")
-        for (const agent of data?.agents?.filter(
-          (a: Item) => a.owner_id === actorId,
-        ) ?? [])
-          records.push({
-            actor_id: agent.id,
-            actor_type: "agent",
-            room: "office",
-            meeting_id: null,
-            updated_at: timestamp,
-          });
-      setDemoPresence((previous) => [
-        ...previous.filter(
-          (p) => !records.some((r) => r.actor_id === p.actor_id),
-        ),
-        ...records,
-      ]);
-      return;
-    }
+    if (demo || !user?.id || !projectId) return;
+    const actorId = user.id;
     let stopped = false;
     const update = () => {
       if (document.visibilityState === "hidden") return;
@@ -729,6 +762,58 @@ export default function App() {
     setMeetingId(id);
     setTab("meetings");
   };
+  const respondInvitation = async (
+    invitation: Item,
+    response: "accept" | "decline" | "later" | "seen",
+  ) => {
+    return action(
+      async () => {
+        await api(`/notifications/${invitation.id}`, "PATCH", {
+          action: response,
+        });
+        await loadNotifications();
+      },
+      response === "accept"
+        ? tr("已接受邀请，可进入会议。")
+        : response === "decline"
+          ? invitation.actor_type === "agent" &&
+            invitation.status === "accepted"
+            ? tr("已撤回 AI 参会授权")
+            : tr("已拒绝邀请")
+          : undefined,
+    );
+  };
+  const openInvitedMeeting = (invitation: Item) => {
+    void action(
+      async () => {
+        await api(`/notifications/${invitation.id}`, "PATCH", {
+          action: "seen",
+        });
+        if (invitation.meeting_status !== "ended")
+          await api(
+            `/projects/${invitation.project_id}/meetings/${invitation.meeting_id}/join`,
+            "POST",
+            {},
+          );
+        if (projectId !== invitation.project_id) setData(null);
+        setProjectId(invitation.project_id);
+        enterMeeting(invitation.meeting_id);
+        close();
+        await loadNotifications();
+      },
+      undefined,
+      true,
+    );
+  };
+  const startDirectConversation = (agent: Item) => {
+    void action(async () => {
+      const conversation = await api(`${endpoint}/conversations`, "POST", {
+        agentId: agent.id,
+      });
+      setSelectedConversation(conversation);
+      setModal("directConversation");
+    });
+  };
   if (!ready) return <div className="loading">{tr("正在打开 conest…")}</div>;
   if (!user && !demo)
     return (
@@ -801,14 +886,6 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="small-note">
-            <Leaf size={20} />
-            <p>
-              {tr("好想法，")}
-              <br />
-              {tr("值得一起完成。")}
-            </p>
-          </div>
           <button className="sidebar-help" onClick={() => setModal("help")}>
             <Info size={18} /> {tr("怎样接入我的 AI？")}
             <ArrowUpRight size={14} />
@@ -853,6 +930,29 @@ export default function App() {
           </span>
           <div className="top-actions">
             <LanguageSwitch />
+            {!demo && user && data && (
+              <button
+                className="notification-button"
+                aria-label={tr("AI 对话")}
+                onClick={() => setModal("conversations")}
+              >
+                <ChatCircleDots size={19} aria-hidden="true" />
+                <span>{tr("AI 对话")}</span>
+              </button>
+            )}
+            {!demo && user && (
+              <button
+                className="notification-button"
+                aria-label={tr("会议通知，{count} 条未读", {
+                  count: unreadInvitations,
+                })}
+                onClick={() => setModal("notifications")}
+              >
+                <Bell size={19} aria-hidden="true" />
+                <span>{tr("通知")}</span>
+                {unreadInvitations > 0 && <b>{unreadInvitations}</b>}
+              </button>
+            )}
             {demo ? (
               <button
                 className="button small"
@@ -873,6 +973,7 @@ export default function App() {
                     onChange={(e) => {
                       setProjectId(e.target.value);
                       setMeetingId(null);
+                      close();
                     }}
                   >
                     {projects.map((p) => (
@@ -928,6 +1029,42 @@ export default function App() {
           <main className="loading">{tr("正在同步项目…")}</main>
         ) : (
           <main className="content">
+            {invitationReminder && (
+              <section className="invitation-reminder" role="status">
+                <Bell size={20} aria-hidden="true" />
+                <div>
+                  <strong>
+                    {invitationReminder.actor_type === "agent"
+                      ? tr("{inviter} 邀请你的 AI {agent} 参会", {
+                          inviter: invitationReminder.inviter_name,
+                          agent: invitationReminder.agent_name,
+                        })
+                      : tr("{name} 邀请你参加会议", {
+                          name: invitationReminder.inviter_name,
+                        })}
+                  </strong>
+                  <p>
+                    {invitationReminder.project_name} ·{" "}
+                    {invitationReminder.title}
+                  </p>
+                </div>
+                <button
+                  className="button small"
+                  onClick={() => setModal("notifications")}
+                >
+                  {tr("查看邀请")}
+                </button>
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() =>
+                    void respondInvitation(invitationReminder, "later")
+                  }
+                >
+                  {tr("稍后处理")}
+                </button>
+              </section>
+            )}
             <div className="page-heading">
               <div>
                 <div className="eyebrow">
@@ -1051,48 +1188,12 @@ export default function App() {
                 }
               >
                 <HouseWorld
-                  data={{
-                    ...data,
-                    presence: demo ? demoPresence : data.presence,
-                  }}
+                  data={data}
                   ownId={demo ? "demo-human" : user!.id}
                   demo={demo}
                   ownWorking={ownWorking}
                   recentMessages={messages}
                   compact={tab !== "office"}
-                  onAgent={(agent) => {
-                    setSelectedMember(agent);
-                    setModal("resident");
-                  }}
-                  onDemoMove={
-                    demo
-                      ? (actorId, room) =>
-                          setDemoPresence((previous) => [
-                            ...previous.filter((p) => p.actor_id !== actorId),
-                            {
-                              actor_id: actorId,
-                              actor_type: "agent",
-                              room,
-                              meeting_id:
-                                room === "meeting" ? activeMeeting?.id : null,
-                              updated_at: new Date().toISOString(),
-                            },
-                          ])
-                      : undefined
-                  }
-                  onRoom={(room) => {
-                    if (room === "meeting") {
-                      if (activeMeeting) enterMeeting(activeMeeting.id);
-                      else setModal("meeting");
-                    } else if (room === "library") {
-                      setMeetingId(null);
-                      setTab("files");
-                    } else {
-                      setMeetingId(null);
-                      setChatScope(room === "commons" ? "lounge" : "office");
-                      setTab("office");
-                    }
-                  }}
                 />
                 {tab === "office" && (
                   <section className="office-conversation">
@@ -1192,7 +1293,7 @@ export default function App() {
                           className="resident-card"
                           onClick={() => setTab("team")}
                         >
-                          <Avatar index={[0, 2, 4][i]} />
+                          <Avatar index={[0, 2, 4][i]} size={40} />
                           <div>
                             <strong>{m.name}</strong>
                             <small>
@@ -1213,7 +1314,7 @@ export default function App() {
                             setModal("resident");
                           }}
                         >
-                          <Avatar index={[1, 3, 5][i]} />
+                          <Avatar index={[1, 3, 5][i]} size={40} />
                           <div>
                             <strong>{a.name}</strong>
                             <small>
@@ -1338,14 +1439,6 @@ export default function App() {
                       </p>
                     )}
                   </section>
-                  <div className="rail-note">
-                    <Leaf size={19} />
-                    <span>
-                      {tr("每个独立的想法，")}
-                      <br />
-                      {tr("都可以在这里找到回应。")}
-                    </span>
-                  </div>
                 </aside>
               </div>
             )}
@@ -1398,6 +1491,14 @@ export default function App() {
                               <button
                                 className="button small"
                                 disabled={busy}
+                                onClick={() => setModal("meetingInvite")}
+                              >
+                                <Plus size={15} />
+                                {tr("追加邀请")}
+                              </button>
+                              <button
+                                className="button small"
+                                disabled={busy}
                                 onClick={() =>
                                   void action(() =>
                                     api(
@@ -1438,13 +1539,55 @@ export default function App() {
                           count: selectedMeeting.max_turns,
                         })}
                       </div>
-                      <Chat messages={messages} agents={data.agents} />
+                      <MeetingParticipants
+                        invitations={meetingInvitations}
+                        presence={data.presence ?? []}
+                        ended={selectedMeeting.status === "ended"}
+                      />
+                      <Chat
+                        messages={messages}
+                        agents={data.agents}
+                        currentUserId={user?.id}
+                        ended={selectedMeeting.status === "ended"}
+                        busy={busy || selectedMeeting.status !== "active"}
+                        retry={(requestId) =>
+                          action(async () => {
+                            await api(
+                              `${endpoint}/agent-requests/${requestId}/retry`,
+                              "POST",
+                              {},
+                            );
+                            setMessages(
+                              await api(
+                                `${endpoint}/messages?meetingId=${meetingId}`,
+                              ),
+                            );
+                          })
+                        }
+                      />
+                      <label className="meeting-mention">
+                        {tr("定向提问（@ AI）")}
+                        <select
+                          value={mentionAgentId}
+                          onChange={(e) => setMentionAgentId(e.target.value)}
+                          disabled={busy || selectedMeeting.status !== "active"}
+                        >
+                          <option value="">{tr("发给会议中的所有人")}</option>
+                          {approvedMeetingAgents.map((a: Item) => (
+                            <option value={a.id} key={a.id}>
+                              @{a.name} · {a.owner_name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                       <MessageForm
                         onDraftChange={setOwnWorking}
                         disabled={selectedMeeting.status !== "active" || busy}
                         placeholder={
                           selectedMeeting.status === "active"
-                            ? tr("分享你的想法，也可以 @你的 AI…")
+                            ? mentionAgentId
+                              ? tr("向选中的 AI 提问，回答会留在会议中。")
+                              : tr("分享你的想法，或选择一个 AI 定向提问…")
                             : selectedMeeting.status === "paused"
                               ? tr("会议已暂停")
                               : tr("会议已结束")
@@ -1454,6 +1597,9 @@ export default function App() {
                             await api(`${endpoint}/messages`, "POST", {
                               body,
                               meetingId,
+                              recipientAgentIds: mentionAgentId
+                                ? [mentionAgentId]
+                                : [],
                             });
                             setMessages(
                               await api(
@@ -1480,15 +1626,22 @@ export default function App() {
                         </button>
                         <button
                           className="text-button"
-                          disabled={selectedMeeting.status !== "active"}
+                          disabled={
+                            selectedMeeting.status !== "active" ||
+                            !approvedMeetingAgents.length ||
+                            busy
+                          }
                           onClick={() =>
                             void action(
                               () =>
                                 api(`${endpoint}/messages`, "POST", {
                                   body: tr(
-                                    "请受邀的 AI 整理本次会议：明确共识、保留分歧，并通过 propose_decision / propose_task 提交草案，等待人确认。",
+                                    "请整理本次会议：列出共识、保留分歧，并给出建议的方案与待办，交由项目成员确认。",
                                   ),
                                   meetingId,
+                                  recipientAgentIds: approvedMeetingAgents.map(
+                                    (a: Item) => a.id,
+                                  ),
                                 }),
                               tr(
                                 "已向会议发送整理请求；需要受邀 AI 客户端在线处理。",
@@ -1780,6 +1933,13 @@ export default function App() {
                         <Avatar index={[0, 2, 4][i % 3]} />
                         <h3>{m.name}</h3>
                         <p>@{m.username}</p>
+                        <small>
+                          {tr("{count} 个 AI 助手", {
+                            count: data.agents.filter(
+                              (a: Item) => a.owner_id === m.id,
+                            ).length,
+                          })}
+                        </small>
                         <span className="role">
                           {m.role === "owner"
                             ? tr("空间创建者")
@@ -1828,6 +1988,40 @@ export default function App() {
                               })
                             : tr("等待客户端连接")}
                         </small>
+                        {a.owner_id === user?.id && (
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              setSelectedMember(a);
+                              setModal("agentPreferences");
+                            }}
+                          >
+                            {tr("协作设置")}
+                          </button>
+                        )}
+                        {(a.owner_id === user?.id || demo) && (
+                          <button className="text-button" onClick={() => {
+                            setSelectedMember(a);
+                            setModal("connectorSetup");
+                          }}>
+                            {tr("配置自动回复")}
+                          </button>
+                        )}
+                        <button
+                          className="text-button"
+                          disabled={
+                            busy ||
+                            (!demo &&
+                              a.owner_id !== user?.id &&
+                              !a.allow_direct)
+                          }
+                          onClick={() => startDirectConversation(a)}
+                        >
+                          {tr("发起对话")}
+                        </button>
+                        {a.owner_id !== user?.id &&
+                          !a.allow_direct &&
+                          !demo && <small>{tr("主人尚未开放对话")}</small>}
                         {a.owner_id === user?.id && (
                           <button
                             className="text-button danger"
@@ -1886,11 +2080,118 @@ export default function App() {
               resident: tr("你的 AI 伙伴"),
               revoke: tr("撤销 AI 接入凭证"),
               endMeeting: tr("结束这场会议"),
+              notifications: tr("会议通知"),
+              meetingInvite: tr("邀请伙伴参会"),
+              agentPreferences: tr("AI 协作设置"),
+              connectorSetup: tr("配置自动回复"),
+              conversations: tr("AI 对话"),
+              directConversation: tr("与 AI 对话"),
             }[modal] ?? "CoNest"
           }
           close={close}
-          wide={modal === "file" || modal === "help" || !!credential}
+          wide={modal === "file" || modal === "help" || modal === "connectorSetup" || !!credential}
         >
+          {modal === "connectorSetup" && selectedMember && (
+            <ConnectorSetup key={selectedMember.id} projectId={projectId} agentId={selectedMember.id} agentName={selectedMember.name} />
+          )}
+          {modal === "notifications" && (
+            <InvitationInbox
+              invitations={notifications}
+              busy={busy}
+              respond={respondInvitation}
+              open={openInvitedMeeting}
+            />
+          )}
+          {modal === "directConversation" && selectedConversation && (
+            <DirectConversation
+              key={selectedConversation.id}
+              conversation={
+                (data?.conversations ?? []).find(
+                  (c: Item) => c.id === selectedConversation.id,
+                ) ?? selectedConversation
+              }
+              projectId={projectId}
+              userId={user?.id}
+            />
+          )}
+          {modal === "conversations" && (
+            <div className="direct-inbox">
+              <p className="modal-intro">
+                {tr("查看你发起的对话，以及伙伴与你的 AI 的对话。")}
+              </p>
+              {(data?.conversations ?? []).map((c: Item) => (
+                <button
+                  className="direct-inbox-item"
+                  key={c.id}
+                  onClick={() => {
+                    setSelectedConversation(c);
+                    setModal("directConversation");
+                  }}
+                >
+                  <ChatCircleDots size={20} aria-hidden="true" />
+                  <span>
+                    <strong>
+                      {tr("{user} 与 {agent} 的对话", {
+                        user: c.user_name,
+                        agent: c.agent_name,
+                      })}
+                    </strong>
+                    <small>{tr("{name} 的 AI", { name: c.owner_name })}</small>
+                  </span>
+                  <ArrowRight size={16} aria-hidden="true" />
+                </button>
+              ))}
+              {!data?.conversations?.length && (
+                <p>{tr("还没有对话。点击一个 AI，选择“发起对话”。")}</p>
+              )}
+            </div>
+          )}
+          {modal === "agentPreferences" && selectedMember && (
+            <AgentPreferences
+              key={selectedMember.id}
+              agent={selectedMember}
+              busy={busy}
+              save={(input) =>
+                action(async () => {
+                  await api(
+                    `${endpoint}/agents/${selectedMember.id}/preferences`,
+                    "PATCH",
+                    input,
+                  );
+                  close();
+                }, tr("协作设置已保存"))
+              }
+            />
+          )}
+          {modal === "meetingInvite" && selectedMeeting && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                void action(async () => {
+                  await api(
+                    `${endpoint}/meetings/${meetingId}/invitations`,
+                    "POST",
+                    {
+                      memberIds: form.getAll("memberIds"),
+                      agentIds: form.getAll("agentIds"),
+                    },
+                  );
+                  close();
+                }, tr("会议邀请已发送"));
+              }}
+            >
+              <InvitationRecipients
+                members={data?.members ?? []}
+                agents={data?.agents ?? []}
+                userId={user?.id}
+                existing={meetingInvitations}
+              />
+              <button className="button primary full" disabled={busy}>
+                {tr("发送邀请")}
+              </button>
+            </form>
+          )}
           {modal === "project" && (
             <form
               onSubmit={(e) => {
@@ -1977,14 +2278,17 @@ export default function App() {
                     agenda: form.get("agenda"),
                     maxTurns: Number(form.get("maxTurns")),
                     agentIds: form.getAll("agentIds"),
+                    memberIds: form.getAll("memberIds"),
                   });
                   close();
                   enterMeeting(m.id);
-                }, tr("会议已开始，受邀 AI 可通过客户端读取消息"));
+                }, tr("会议已创建，邀请已发送。"));
               }}
             >
               <p className="modal-intro">
-                {tr("项目成员都能参与。选择需要带上背景一起讨论的 AI。")}
+                {tr(
+                  "选择要通知的伙伴和 AI。其他项目成员也可以进入会议，AI 需要主人允许。",
+                )}
               </p>
               <label>
                 {tr("会议主题")}
@@ -2004,37 +2308,11 @@ export default function App() {
                   placeholder={tr("目标、需要讨论的问题，以及相关资料路径")}
                 />
               </label>
-              <fieldset>
-                <legend>{tr("邀请 AI")}</legend>
-                {data?.agents.length ? (
-                  data.agents.map((a: Item) => (
-                    <label className="check-label" key={a.id}>
-                      <input
-                        type="checkbox"
-                        name="agentIds"
-                        value={a.id}
-                        defaultChecked
-                      />
-                      <span>
-                        {a.name}
-                        <small>
-                          {tr("{owner} 的 {name}", {
-                            owner: a.owner_name,
-                            name: a.model,
-                          })}
-                        </small>
-                      </span>
-                      <Badge
-                        status={demo || agentOnline(a) ? a.status : "offline"}
-                      />
-                    </label>
-                  ))
-                ) : (
-                  <p className="muted">
-                    {tr("还没有接入 AI，你们也可以先开会。")}
-                  </p>
-                )}
-              </fieldset>
+              <InvitationRecipients
+                members={data?.members ?? []}
+                agents={data?.agents ?? []}
+                userId={user?.id}
+              />
               <label>
                 {tr("每个 AI 的发言上限")}
                 <input
@@ -2070,6 +2348,11 @@ export default function App() {
               >
                 <p className="modal-intro">
                   {tr(
+                    "一个人可以接入多个 AI 助手，每个助手都有独立身份和工位。",
+                  )}
+                </p>
+                <p className="modal-intro">
+                  {tr(
                     "CoNest 为它提供身份和协作工具。模型和私人上下文仍由你自己的客户端管理。",
                   )}
                 </p>
@@ -2099,6 +2382,7 @@ export default function App() {
             ))}
           {modal === "help" && (
             <div className="help-content">
+              <ConnectorSetup projectId={projectId} />
               <p>
                 {tr(
                   "在“伙伴与 AI”里创建 AI 身份后，把专属凭证配置到你自己的 AI 工具中。",
@@ -2110,7 +2394,7 @@ export default function App() {
                   "在支持远程 MCP 和 Bearer 凭证的客户端里，配置下面的服务地址。具体配置字段随客户端不同。",
                 )}
               </p>
-              <pre>{`${location.origin}/mcp`}</pre>
+              <CopyBox value={`${location.origin}/mcp`} />
               <h3>{tr("普通 HTTP API")}</h3>
               <p>
                 {tr(
@@ -2335,6 +2619,7 @@ export default function App() {
           {modal === "resident" && selectedMember && (
             <div className="resident-detail">
               <Avatar
+                size={96}
                 index={
                   [1, 3, 5][
                     Math.max(
@@ -2371,6 +2656,21 @@ export default function App() {
                       "尚未收到客户端连接。配置好 MCP 或 API 后，它就可以参与项目。",
                     )}
               </p>
+              <button
+                className="button primary"
+                disabled={
+                  busy ||
+                  (!demo &&
+                    selectedMember.owner_id !== user?.id &&
+                    !selectedMember.allow_direct)
+                }
+                onClick={() => startDirectConversation(selectedMember)}
+              >
+                {tr("发起对话")}
+              </button>
+              {selectedMember.owner_id !== user?.id &&
+                !selectedMember.allow_direct &&
+                !demo && <p className="muted">{tr("主人尚未开放对话")}</p>}
               <button
                 className="button"
                 onClick={() => {
@@ -2505,7 +2805,21 @@ function MessageForm({
     </form>
   );
 }
-function Chat({ messages, agents }: { messages: Item[]; agents: Item[] }) {
+function Chat({
+  messages,
+  agents,
+  retry,
+  currentUserId,
+  busy,
+  ended,
+}: {
+  messages: Item[];
+  agents: Item[];
+  retry?: (requestId: string) => Promise<unknown>;
+  currentUserId?: string;
+  busy?: boolean;
+  ended?: boolean;
+}) {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
@@ -2541,6 +2855,33 @@ function Chat({ messages, agents }: { messages: Item[]; agents: Item[] }) {
                 <time>{time(m.created_at)}</time>
               </header>
               <p>{m.body}</p>
+              {m.ai_requests?.length > 0 && (
+                <div className="direct-message-state">
+                  {m.ai_requests.map((r: Item) => (
+                    <span key={r.id}>
+                      @
+                      {agents.find((a) => a.id === r.agentId)?.name ??
+                        tr("伙伴")}{" "}
+                      ·{" "}
+                      {ended && r.status !== "replied"
+                        ? tr("会议已结束，未回复")
+                        : tr(requestLabels[r.status])}
+                      {r.status === "failed" &&
+                        !ended &&
+                        m.actor_id === currentUserId &&
+                        retry && (
+                          <button
+                            className="text-button"
+                            disabled={busy}
+                            onClick={() => void retry(r.id)}
+                          >
+                            {tr("重试")}
+                          </button>
+                        )}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </article>
         ))
@@ -2548,33 +2889,6 @@ function Chat({ messages, agents }: { messages: Item[]; agents: Item[] }) {
         <p className="chat-empty">{tr("议题已经准备好，分享第一个想法吧。")}</p>
       )}
       <div ref={end} />
-    </div>
-  );
-}
-function CopyBox({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false),
-    [error, setError] = useState(false);
-  return (
-    <div className="copy-box">
-      <pre tabIndex={0}>{value}</pre>
-      <button
-        className="icon-button"
-        aria-label={tr("复制")}
-        onClick={() => {
-          navigator.clipboard
-            .writeText(value)
-            .then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            })
-            .catch(() => setError(true));
-        }}
-      >
-        {copied ? <Check size={18} /> : <Copy size={18} />}
-      </button>
-      {error && (
-        <small role="status">{tr("无法自动复制，请选中文本手动复制。")}</small>
-      )}
     </div>
   );
 }
@@ -2588,6 +2902,7 @@ function Credential({ credential }: { credential: Item }) {
           <p>{tr("凭证仅展示这一次。请保存到你的客户端配置中。")}</p>
         </div>
       </div>
+      <ConnectorSetup projectId={credential.projectId} agentId={credential.id} agentName={credential.name} token={credential.token} />
       <label>
         {tr("AI 专属凭证")}
         <CopyBox value={credential.token} />

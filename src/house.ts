@@ -7,6 +7,12 @@ import {
   officeCabinets,
   officeDesks,
   readingTable,
+  conferenceTable,
+  frontWalls,
+  officeSideWalls,
+  officeDoorJambs,
+  officeFootprint,
+  officeChairBases,
 } from "./office-layout";
 import { officeObjectBounds } from "./office-objects";
 export type Room = "office" | "meeting" | "library" | "commons";
@@ -75,10 +81,11 @@ export function officeDestination(
   office: number,
   index: number,
   robot = false,
+  seatIndex = Number(robot),
 ): Point {
   const point =
     room === "office"
-      ? officeSeats[office % 3][Number(robot)]
+      ? officeSeats[office % 3][seatIndex]
       : room === "meeting"
         ? meetingSeats[index % meetingSeats.length]
         : room === "library"
@@ -92,10 +99,11 @@ export function officeFacing(
   office: number,
   index: number,
   robot = false,
+  seatIndex = Number(robot),
 ) {
   const seat =
     room === "office"
-      ? officeSeats[office % 3][Number(robot)]
+      ? officeSeats[office % 3][seatIndex]
       : room === "meeting"
         ? meetingSeats[index % meetingSeats.length]
         : room === "commons"
@@ -109,21 +117,49 @@ export function officeWalkable(x: number, y: number) {
   const inRect = (l: number, t: number, r: number, b: number) =>
     inside(px, py, l, t, r, b);
   const floor =
-    inRect(24, 232, 552, 276) ||
+    // Lateral travel clears the wall face with the whole standing body. Only
+    // the door approach lanes pass through its projected height.
+    inRect(24, 266, 552, 276) ||
     inRect(24, 76, 190, 190) ||
     inRect(202, 76, 382, 190) ||
     inRect(394, 76, 550, 190) ||
-    inRect(107, 184, 125, 244) ||
-    inRect(283, 184, 301, 244) ||
-    inRect(463, 184, 481, 244) ||
-    inRect(51, 272, 69, 324) ||
-    inRect(283, 272, 301, 324) ||
+    inRect(107, 184, 125, 272) ||
+    inRect(283, 184, 301, 272) ||
+    inRect(463, 184, 481, 272) ||
+    inRect(51, 272, 69, 360) ||
+    inRect(283, 272, 301, 360) ||
     inRect(443, 272, 461, 404) ||
-    inRect(24, 324, 222, 448) ||
-    inRect(234, 324, 350, 464) ||
-    inRect(362, 316, 550, 448);
+    inRect(24, 358, 222, 456) ||
+    inRect(234, 358, 350, 456) ||
+    inRect(283, 456, 301, 520) ||
+    inRect(362, 380, 550, 448);
   if (!floor) return false;
-  if (inRect(94, 334, 170, 448)) return false;
+  const overlapsWall = (
+    wall: { x: number; y: number; width: number; height: number },
+    radiusX: number,
+  ) =>
+    px + radiusX > wall.x &&
+    px - radiusX < wall.x + wall.width &&
+    py + officeFootprint.y > wall.y &&
+    py - officeFootprint.y < wall.y + wall.height;
+  if (
+    frontWalls.some((wall) => overlapsWall(wall, officeFootprint.x)) ||
+    officeDoorJambs.some((wall) => overlapsWall(wall, officeFootprint.x)) ||
+    officeSideWalls.some((wall) =>
+      overlapsWall(wall, officeFootprint.sideClearance),
+    )
+  )
+    return false;
+  if (officeChairBases.some((base) => overlapsWall(base, 6))) return false;
+  if (
+    inRect(
+      conferenceTable.x - 8,
+      conferenceTable.y + 7,
+      conferenceTable.x + conferenceTable.width + 8,
+      conferenceTable.y + conferenceTable.height + 7,
+    )
+  )
+    return false;
   if (inRect(360, 284, 440, 352) || inRect(476, 284, 552, 352)) return false;
   if (
     inRect(
@@ -167,28 +203,84 @@ export function officeWalkable(x: number, y: number) {
   }
   return true;
 }
-function nearest(point: Point, canWalk: typeof walkable): Point {
-  let best = { x: 50, y: 40 },
-    distance = Infinity;
+function clearSegment(a: Point, b: Point, canWalk: typeof walkable) {
+  if (a.x !== b.x && a.y !== b.y) return false;
+  const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 10));
+  for (let i = 0; i <= steps; i++)
+    if (
+      !canWalk(a.x + ((b.x - a.x) * i) / steps, a.y + ((b.y - a.y) * i) / steps)
+    )
+      return false;
+  return true;
+}
+function connect(a: Point, b: Point, canWalk: typeof walkable): Point[] | null {
+  for (const elbow of [
+    { x: a.x, y: b.y },
+    { x: b.x, y: a.y },
+  ]) {
+    if (clearSegment(a, elbow, canWalk) && clearSegment(elbow, b, canWalk))
+      return [a, elbow, b].filter(
+        (p, i, points) =>
+          i === 0 || p.x !== points[i - 1].x || p.y !== points[i - 1].y,
+      );
+  }
+  return null;
+}
+type NavigationGrid = { nodes: Uint8Array; edges: Int8Array };
+const fixedGrids = new Map<typeof walkable, NavigationGrid>();
+function navigationGrid(canWalk: typeof walkable) {
+  // These two authored maps are immutable; custom/dynamic masks are never cached.
+  if (canWalk !== walkable && canWalk !== officeWalkable) return undefined;
+  let grid = fixedGrids.get(canWalk);
+  if (!grid) {
+    const nodes = new Uint8Array(10_000);
+    for (let y = 0; y < 100; y++)
+      for (let x = 0; x < 100; x++) nodes[y * 100 + x] = Number(canWalk(x, y));
+    grid = { nodes, edges: new Int8Array(20_000) };
+    fixedGrids.set(canWalk, grid);
+  }
+  return grid;
+}
+function nearest(
+  point: Point,
+  canWalk: typeof walkable,
+  grid?: NavigationGrid,
+): Point | undefined {
+  const candidates: { point: Point; distance: number }[] = [];
+  const startsOnFloor = canWalk(point.x, point.y);
   for (let y = 0; y < 100; y++)
     for (let x = 0; x < 100; x++) {
-      if (!canWalk(x, y)) continue;
-      const d = Math.hypot((x - point.x) * 1.5, y - point.y);
-      if (d < distance) {
-        distance = d;
-        best = { x, y };
-      }
+      if (!(grid ? grid.nodes[y * 100 + x] : canWalk(x, y))) continue;
+      candidates.push({
+        point: { x, y },
+        distance: Math.hypot((x - point.x) * 1.5, y - point.y),
+      });
     }
-  return best;
+  candidates.sort((a, b) => a.distance - b.distance);
+  // Only test the closest entries first. Fractional starts must have a clear
+  // orthogonal connection; proximity alone can select the other side of a wall.
+  return candidates.find(
+    ({ point: candidate }) =>
+      !startsOnFloor || connect(point, candidate, canWalk),
+  )?.point;
 }
 export function findPath(
   start: Point,
   end: Point,
   canWalk = walkable,
 ): Point[] {
-  const from = nearest(start, canWalk),
-    to = nearest(end, canWalk);
+  const grid = navigationGrid(canWalk);
+  const from = nearest(start, canWalk, grid),
+    to = nearest(end, canWalk, grid);
+  if (!from || !to) return [];
   const key = ({ x, y }: Point) => y * 100 + x;
+  const edgeClear = (a: Point, b: Point) => {
+    if (!grid) return clearSegment(a, b, canWalk);
+    const index = Math.min(key(a), key(b)) * 2 + Number(a.x === b.x);
+    if (!grid.edges[index])
+      grid.edges[index] = clearSegment(a, b, canWalk) ? 1 : -1;
+    return grid.edges[index] === 1;
+  };
   const queue = [from],
     previous = new Map<number, Point | null>([[key(from), null]]);
   for (let i = 0; i < queue.length; i++) {
@@ -207,8 +299,9 @@ export function findPath(
         next.y < 0 ||
         next.x >= 100 ||
         next.y >= 100 ||
-        !canWalk(next.x, next.y) ||
-        previous.has(id)
+        previous.has(id) ||
+        !(grid ? grid.nodes[id] : canWalk(next.x, next.y)) ||
+        !edgeClear(point, next)
       )
         continue;
       previous.set(id, point);
@@ -223,40 +316,15 @@ export function findPath(
     point = previous.get(key(point)) ?? null
   )
     path.unshift(point);
-  // The grid finds the route; the final short approach reaches the authored chair anchor exactly.
-  const last = path.at(-1)!;
-  if (canWalk(end.x, end.y) && (last.x !== end.x || last.y !== end.y)) {
-    const clear = (a: Point, b: Point) => {
-      const steps = Math.max(
-        1,
-        Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 10),
-      );
-      for (let i = 0; i <= steps; i++)
-        if (
-          !canWalk(
-            a.x + ((b.x - a.x) * i) / steps,
-            a.y + ((b.y - a.y) * i) / steps,
-          )
-        )
-          return false;
-      return true;
-    };
-    for (const elbow of [
-      { x: end.x, y: last.y },
-      { x: last.x, y: end.y },
-    ]) {
-      if (clear(last, elbow) && clear(elbow, end)) {
-        if (elbow.x !== last.x || elbow.y !== last.y) path.push(elbow);
-        if (elbow.x !== end.x || elbow.y !== end.y) path.push(end);
-        break;
-      }
-    }
-  }
-  const simplified: Point[] = [];
-  path.forEach((p, i) => {
-    const a = path[i - 1],
-      b = path[i + 1];
-    if (!a || !b || (a.x !== b.x && a.y !== b.y)) simplified.push(p);
+  const prefix = canWalk(start.x, start.y)
+    ? connect(start, from, canWalk)
+    : [from];
+  const suffix = canWalk(end.x, end.y) ? connect(to, end, canWalk) : [to];
+  if (!prefix || !suffix) return [];
+  const complete = [...prefix.slice(0, -1), ...path, ...suffix.slice(1)];
+  return complete.filter((p, i) => {
+    const a = complete[i - 1],
+      b = complete[i + 1];
+    return !a || !b || (a.x !== b.x && a.y !== b.y);
   });
-  return simplified;
 }

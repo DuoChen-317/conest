@@ -1,5 +1,43 @@
 # Design QA
 
+## Local auto-reply setup and clipboard compatibility — 2026-10-27
+
+AI creation credentials, existing AI cards and the connection guide now expose a client-neutral setup prompt generator. It includes per-AI identity, optional credential, check interval (2/5/10/30/60 seconds), direct/meeting scope and reply preferences. The local connector honors those settings, filters before claiming requests, avoids model calls for empty queues, and stops on invalid identity or authorization failures. Generated prompts include the HTTP protocol and equivalent MCP operations for clients without a local CoNest checkout. Generating a prompt does not start a background process.
+
+Copy controls prefer Clipboard API and fall back to selection-based copying when unavailable or rejected. Errors, retries and success feedback were checked. Browser verification copied and pasted the complete 3,996-character setup prompt without differences; the temporary input was cleared without sending a message. Default desktop and narrow 480px layouts had no horizontal overflow. Screenshots: ignored `work/qa/mcp-copy-fixed.png` and `work/qa/auto-reply-setup.png` (no real credentials). `npm test`: **61 passing**; `npm run build`: passed. No live model or remote production deployment was run for this verification.
+
+## Wall collision and movement occlusion — 2026-10-26
+
+The old floor rectangles allowed centers into the upper front-wall strip, and side-wall checks ignored sprite width. Lower room faces and wall caps also lived behind actors, so doorway travel could draw a body over masonry. Front walls, taller library faces, door jambs and side partitions now share authored geometry between rendering and navigation. Front passages reserve a 6×3-native-pixel foot radius; side partitions reserve 12 native pixels horizontally for the full silhouette. Lower faces and all horizontal caps use wall depth instead of the background layer.
+
+Routes now include checked orthogonal connections from fractional in-flight positions to the navigation grid and from the grid to the exact destination. Every grid edge is sampled as well, and immutable map connectivity is cached. Recovery from an invalid old anchor snaps to the checked route start rather than animating through a wall.
+
+Validation: 34 tests pass and the production build succeeds. Route checks sample each segment at 0.1 percentage-point intervals, including starts at doorways/corners and changes of destination mid-route. All office seats, conference seats and archive spots remain reachable. Browser inspection confirmed all 11 foreground faces (48/68 native pixels tall) and front caps at matching z-index 46/67/97. Snapshot: `work/qa/collision-walls-fixed.jpg`.
+
+## Read-only scene driven by reported activity — 2026-10-26
+
+Removed all room/furniture navigation targets, clickable residents, actor inspector and demo movement controls. Camera zoom/pan, expansion, animation pause and office paging remain viewing controls; “Show my office” changes only the camera/page. Room names remain plain labels. Scene footer copy describes automatic status updates or labeled sample state.
+
+Human presence follows actual app view activity, AI location follows authenticated operations/presence reports, and work animation follows reported status. Inviting an AI no longer moves it into a meeting; its client must read/send meeting messages or report attendance. The demo uses fixed sample presence rather than moving AI actors when the user changes pages. Loading the scene, returning to the same anchor and losing connectivity no longer create synthetic walking animations.
+
+Validation: 27 tests pass, including new report/staleness/composer cases and an HTTP check distinguishing invitations from actual attendance. Production build succeeds. Browser checks verify that the scene floor contains no buttons or action controls and that sample AI locations remain stable across ordinary page navigation.
+
+## Furniture shadows and layout alignment — 2026-10-26
+
+Verified the imported chairs, planter and room atlas against the original purchased pack: the files are identical. The carpet uses original room tiles with the existing 22% blue overlay. The apparent gaps below furniture were opaque #a79796 ground-shadow pixels in the normal office singles, not missing floor or clipped sprites. The asset loader now converts only those opaque ground-shadow pixels to the official Black Shadow atlas’s black / alpha 30 treatment, preserving object colors, dimensions, alpha margins and original files. The same treatment covers modular tables in the office atlas. A follow-up extends the same shadow conversion to the library atlas and animated cart; those separate image names were missed by the original office-only selection.
+
+The language label now resets inherited form margins and the select’s top margin; topbar controls share a 36px height and project-selector chevrons center vertically. Avatar wrappers and sprite canvases share their explicit sizes (40px for member rows), with standing-frame transparent headroom compensated only in UI avatars. Member rows use aligned avatar/text/status columns and a responsive grid. Heading actions no longer inherit a breakpoint-specific top offset.
+
+Validation: all 25 existing tests and production build pass. At 1280px the language selector and adjacent button have the same 16px top and 36px height; member avatar and canvas both measure 40×40. Browser checks found 83 processed furnishing images and no horizontal overflow. Evidence: `work/qa/shadows-layout-desktop.jpg` and `work/qa/shadows-layout-members.jpg`. The runtime keeps paid source images in ignored local data.
+
+## Door baselines and multiple assistants — 2026-10-26
+
+The supplied Modern Office reference guided the remaining mounting and doorway corrections. Private-office AC units now clear the complete cabinet silhouettes; neighboring artwork also has space. The library door now meets the taller wall’s floor baseline, with a continuous brick header. The entrance uses one continuous cap and side wall baseline instead of the lowered central section. Navigation reserves the taller library wall and follows the entrance passage through its threshold.
+
+Each member may have several AI assistants. Two-seat offices are assigned from the member and their assistants, with extra offices grouped by owner and numbered; the scene pages through groups of three offices. Every human/AI has one distinct seat, including assistants using the left desk of an extra office. Desk interactions identify the assigned actor. The team view shows each member’s assistant count and the connection form explains multiple assistants. The demo includes Alex with Atlas, Echo and Sage.
+
+Validation: all 25 tests pass and the production build succeeds. Assignment tests cover nine assistants, several office pages, removal and exact reachable chair anchors. Existing HTTP/MCP tests include two assistants belonging to the same person. Browser checks confirmed separate Echo/Sage workstations, next-page access to Noah/Nova, return to the owner’s office, and Echo independently reaching the library and changing to `reading`. Chinese and English scene labels were checked. Evidence: `work/qa/office-multi-ai-zh.jpg`. Purchased art remains in ignored runtime data.
+
 ## Door, cart and lamp detail corrections — 2026-10-23
 
 The user rejected the remaining detail alignment, specifically the extra slab above doors, the cart and the reading lamp. This revision replaces the clipped 128×48 glass strip plus improvised jambs with the complete original five-frame 80×32 office door strip (`animated_door_5`). Each frame uses the same bottom baseline; one continuous cap runs across the wall and door header (no separate white slab), and small masonry reveals fill the source frame's transparent side margins. Lower wall faces and door baselines now meet at the same floor line. Door collision excludes jambs; meeting navigation follows the visible tabletop edge rather than its 8 transparent top source rows, retaining the north aisle.
@@ -122,3 +160,21 @@ Browser checks used an isolated persisted project at `localhost:4175` with three
 ## Earlier revisions
 
 The initial AgentSims-inspired static warm house and its fixed residents have been superseded. Earlier checks established the core persisted meeting/file/task flows and bilingual registration, login, validation, draft retention and language preference behavior. The current screenshots and behavior above replace those older visual findings.
+
+## Meeting invitations and directed AI conversations (2026-10-26)
+
+- Full test suite: 36 tests passed. Production TypeScript/Vite build and git diff --check passed.
+- HTTP coverage includes persistent and duplicate invitations, recipient validation rollback, cross-project notifications, owner approval, actual attendance, ended meetings and permission-preserving upgrades.
+- Conversation coverage includes sender/owner/target-only access, sibling-AI isolation, consent withdrawal, shared-only context, structured mentions, failed-request retry, expired leases, ordered follow-up context and idempotent replies.
+- The connector was exercised end to end with a simulated model. Provider request formats use mocked HTTP responses; no real provider credentials or billable model calls were used.
+- Browser checks used isolated SQLite data and conest-qa.localhost:4187. Verified form submission, offline invitations, accept/join, AI approval, real attendance, directed questions and simulated replies.
+- Verified desktop and 390px mobile layouts, separate touch targets and focus retention after invitation actions.
+- Reproduced and fixed account switching: B returns to their own office instead of inheriting A's selected meeting. B's invitation remains pending, with no attendance timestamp, until they choose to join.
+- The retained local preview contains isolated test fixtures rather than normal project data.
+
+## Permission and dependency review (2026-10-26)
+
+- Reproduced and fixed five permission/privacy defects: stale direct-reply leases after consent restoration, inability to withdraw an attending AI's meeting access, AI reopening verified tasks, event polls surviving credential revocation, and private context included in public example-handler input.
+- Added six regression tests, including compressed request rejection. Full suite: 51 passing. TypeScript check and production build passed; npm audit reports zero known vulnerabilities after dependency updates.
+- Browser verification at conest-qa.localhost:4187 confirmed the AI owner can withdraw an already accepted, previously attended meeting invitation; the UI then shows “参会授权已撤回”. Only isolated test data was changed.
+- Detailed permissions, remaining product limitations and advisory references: [security review](docs/security-review.md).

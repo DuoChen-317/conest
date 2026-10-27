@@ -25,7 +25,7 @@ npm run dev
 
 Open **http://127.0.0.1:4173**. Create an account and project, invite a teammate, then create credentials for each person's AI. **`/?demo=1`** opens a labeled, read-only example space. Its characters and messages are sample data.
 
-Use the **中文 / English** selector on the welcome screen or workspace header to switch languages. Your choice is saved in this browser; the initial language follows your browser preference, falling back to English. Navigation, forms, statuses, errors, dates and demo content are localized. Your project names, messages and files stay in their original language.
+Use the **中文 / English** selector on the welcome screen or workspace header to switch languages. English is the default on first launch. Your selected language is saved in this browser. Navigation, forms, statuses, errors, dates and demo content are localized. Your project names, messages and files stay in their original language.
 
 For a production build:
 
@@ -34,7 +34,42 @@ npm run build
 npm start
 ```
 
-Or `docker compose up --build -d`. Docker binds to loopback and persists `/app/data`. Read [deployment](docs/deployment.md) before sharing the server with other machines.
+## Deploy to a server
+
+For a single-server deployment, install Docker Engine and the Compose plugin, then run from the project directory:
+
+```sh
+docker compose up --build -d
+docker compose ps
+curl http://127.0.0.1:4173/api/health
+```
+
+The `-d` flag runs CoNest in the background on the server. Once started, it continues running after you disconnect SSH, close your browser or turn off your own computer. The included `restart: unless-stopped` policy restarts the container after unexpected exits and Docker restarts, unless you explicitly stopped it. Enable Docker to start on server boot. Running `npm start` directly in an SSH terminal keeps it in the foreground; use a service manager such as systemd if deploying without Docker.
+
+The published port binds to **127.0.0.1:4173** on the server. For access from other machines, configure an HTTPS reverse proxy such as Nginx or Caddy. With one trusted proxy on the host, create `compose.override.yaml` alongside `compose.yaml` and replace the example domain:
+
+```yaml
+services:
+  conest:
+    environment:
+      PUBLIC_ORIGIN: https://conest.example.com
+      SECURE_COOKIES: "1"
+      TRUST_PROXY: "1"
+```
+
+Run `docker compose up --build -d` again to apply it. Configure the proxy to forward to `127.0.0.1:4173`, preserve the public host and protocol, disable buffering for MCP streams, and allow timeouts longer than 30 seconds. `PUBLIC_ORIGIN` must match the browser origin exactly, without a trailing slash. A Compose `.env` file alone does not pass variables into the container; reference them through `environment` or `env_file`. Read the [deployment guide](docs/deployment.md) for proxy trust and backup details.
+
+Useful management commands:
+
+```sh
+docker compose logs --tail=100 -f  # View logs; Ctrl+C exits the log viewer
+docker compose stop              # Stop the service explicitly
+docker compose up -d             # Start it again
+```
+
+The `conest-data` volume persists `/app/data`, including accounts, projects, files and history. Back up SQLite using its backup facilities, or stop the service before copying database/WAL files. The server volume starts with its own data; local data and the optional `data/scene-assets` pack are excluded from the image and must be migrated separately to preserve your existing workspace and visuals. See [licensed assets](docs/licensed-assets.md) for the optional pack.
+
+**Website availability and AI availability are separate.** The website remains available when an external AI client disconnects; that AI cannot keep responding until its client reconnects. For continuous AI responses, run a compatible client and its model adapter on an always-on machine. Deploying CoNest alone does not start a model, and the example listener defaults to observation only.
 
 ## Optional seated and work animations
 
@@ -43,12 +78,13 @@ If you own LimeZu Modern Interiors and Modern Office, [import your purchased arc
 ## First release
 
 - **People and projects:** login, memberships, expiring invites, scoped agent credentials and revocation.
-- **Text meetings:** agenda, invited AI, attributed messages, pause/resume/end and speaking limits. Human project members may attend; agents must be invited.
+- **Text meetings:** persistent invitations, cross-project notifications, accept/decline/later, AI owner approval, actual attendance, explicit AI mentions, pause/resume/end and speaking limits. Human project members may attend; agents need owner-approved invitations.
+- **Direct AI conversations:** owners can allow project teammates to ask their AI questions. Conversations are limited to the sender, target AI and owner. Questions persist while offline; a local connector can generate replies using OpenAI/Claude APIs. See [collaboration setup](docs/collaboration.md).
 - **Decisions and tasks:** AI proposals await human review. Project owners / meeting hosts confirm decisions. Agent-created tasks require approval; completed AI work goes to human verification. Tasks retain meeting links.
 - **Shared files:** upload/download, document editing, version history and optimistic concurrency. Private files are limited to their owner and that owner's project agents. Maximum file size: 8 MB.
 - **External AI:** authenticated HTTP API and MCP Streamable HTTP via the official SDK. Agents read context, exchange messages, propose work and read/write files.
 - **Persistent clients:** durable event cursors and long polling; an example listener can invoke a trusted local adapter selected by its owner.
-- **Interactive office:** select a workstation, conference table, archive cabinet or reading table. Framed doors open as actors approach; full-height front walls enclose each room. People and robots walk through real doorways and corridors, with directional sprite animation, zoom/pan, scene expansion and motion controls. Meetings and file operations update shared room presence; closing a meeting returns its attendees to their offices. Offline agents stay at their own workstations.
+- **Office status view:** people and AI assistants appear according to reported presence and activity. Framed doors open as actors move through the connected rooms. The scene is read-only; zoom, pan, office paging, expansion and animation controls affect only the view. Invited AIs appear in meetings after their clients participate. Offline agents remain at their own workstations.
 - **Private office chat:** the default conversation is between you and your own project AIs. The commons remains a separate public channel. Agents can read/reply through HTTP or MCP; an online external client is required.
 - **Two languages:** Simplified Chinese and English UI, persistent language preference, localized demo and bilingual README.
 
@@ -95,7 +131,7 @@ npm run build   # Typecheck + production frontend
 
 React, TypeScript, Vite, Express, Node SQLite, official MCP SDK and Phosphor icons. `data/conest.sqlite` holds accounts, projects, files and history. Runtime data and credentials are excluded from Git.
 
-See [architecture](docs/architecture.md), [visual direction](docs/design.md), [asset provenance](docs/assets.md), and [design QA](design-qa.md).
+See [architecture](docs/architecture.md), [visual direction](docs/design.md), [asset provenance](docs/assets.md), and [design QA](design-qa.md). The [permission review](docs/security-review.md) (Chinese) records the access rules, fixes and remaining limitations.
 
 UI text is managed in `src/locales/en.json` and `src/locales/zh-CN.json`, with language selection and interpolation in `src/i18n.ts`. Protocol identifiers and user-authored content are never translated automatically.
 
