@@ -37,7 +37,6 @@ import {
   Leaf,
   DotsThree,
   PlugsConnected,
-  MagnifyingGlass,
   Bell,
 } from "@phosphor-icons/react";
 import {
@@ -52,6 +51,8 @@ import { api, createDemoData, decodeText, time, type Item } from "./api";
 import HouseWorld, { SceneSprite } from "./HouseWorld";
 import CopyBox from "./CopyBox";
 import ConnectorSetup from "./ConnectorSetup";
+import FilesBrowser from "./FilesBrowser";
+import { pathInDirectory } from "./file-browser";
 import type { Room } from "./house";
 import {
   tr,
@@ -429,8 +430,9 @@ export default function App() {
   const [fileText, setFileText] = useState(""),
     [filePath, setFilePath] = useState(""),
     [filePrivate, setFilePrivate] = useState(false),
-    [fileEditable, setFileEditable] = useState(true),
-    [search, setSearch] = useState("");
+    [fileEditable, setFileEditable] = useState(true);
+  const [fileDirectory, setFileDirectory] = useState("");
+  useEffect(() => setFileDirectory(""), [projectId, user?.id, demo]);
   const [invite] = useState(new URLSearchParams(location.search).get("invite"));
   const [selectedMember, setSelectedMember] = useState<Item | null>(null);
   const [notifications, setNotifications] = useState<Item[]>([]);
@@ -747,7 +749,7 @@ export default function App() {
     await action(
       () =>
         api(`${endpoint}/files`, "POST", {
-          path: uploaded.name,
+          path: pathInDirectory(fileDirectory, uploaded.name),
           content: btoa(bytes),
           encoding: "base64",
           mime: uploaded.type || "application/octet-stream",
@@ -867,7 +869,7 @@ export default function App() {
               className={tab === t.id ? "active" : ""}
               onClick={() => {
                 setTab(t.id);
-                setSearch("");
+                setFileDirectory("");
                 if (t.id !== "meetings") setMeetingId(null);
               }}
             >
@@ -1121,7 +1123,7 @@ export default function App() {
                       className="button primary"
                       onClick={() => {
                         setFile(null);
-                        setFilePath("");
+                        setFilePath(fileDirectory ? `${fileDirectory}/` : "");
                         setFileText("");
                         setFilePrivate(false);
                         setFileEditable(true);
@@ -1729,87 +1731,13 @@ export default function App() {
               </div>
             )}
             {tab === "files" && (
-              <section className="files-panel">
-                <div className="files-toolbar">
-                  <h2>
-                    {tr("项目资料")}
-                    <span>{data.files.length}</span>
-                  </h2>
-                  <label className="search">
-                    <MagnifyingGlass size={17} />
-                    <input
-                      aria-label={tr("搜索文件")}
-                      placeholder={tr("查找文件…")}
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                  </label>
-                </div>
-                {data.files.length ? (
-                  <div className="file-table">
-                    <div className="file-row table-head">
-                      <span>{tr("文件名")}</span>
-                      <span>{tr("可见范围")}</span>
-                      <span>{tr("版本")}</span>
-                      <span>{tr("大小")}</span>
-                      <span>{tr("最近更新")}</span>
-                    </div>
-                    {data.files
-                      .filter((f: Item) =>
-                        f.path.toLowerCase().includes(search.toLowerCase()),
-                      )
-                      .map((f: Item) => (
-                        <button
-                          className="file-row"
-                          key={f.id}
-                          onClick={() => void openFile(f)}
-                        >
-                          <span>
-                            <FileText size={22} />
-                            <b>{f.path}</b>
-                          </span>
-                          <span>
-                            {f.visibility === "private" ? (
-                              <>
-                                <LockSimple size={14} />
-                                {tr("仅自己与自己的 AI")}
-                              </>
-                            ) : (
-                              <>
-                                <Globe size={14} />
-                                {tr("项目共享")}
-                              </>
-                            )}
-                          </span>
-                          <span className="file-version">v{f.version}</span>
-                          <span>
-                            {f.size < 1024
-                              ? `${f.size} B`
-                              : `${(f.size / 1024).toFixed(1)} KB`}
-                          </span>
-                          <span>
-                            {new Date(f.updated_at).toLocaleDateString(
-                              getLocale(),
-                            )}
-                          </span>
-                        </button>
-                      ))}
-                  </div>
-                ) : (
-                  <Empty
-                    icon={FolderOpen}
-                    title={tr("把共同工作的背景，放在这里。")}
-                  >
-                    {tr(
-                      "上传项目资料，或创建第一份需求文档。AI 只能读取获准访问的文件。",
-                    )}
-                  </Empty>
-                )}
-                <footer className="file-note">
-                  <Info size={16} />
-                  {tr("每次修改保存为新版本。发生冲突时，需要先读取最新内容。")}
-                </footer>
-              </section>
+              <FilesBrowser
+                key={data.project.id}
+                files={data.files}
+                directory={fileDirectory}
+                navigate={setFileDirectory}
+                openFile={(f) => void openFile(f)}
+              />
             )}
             {tab === "tasks" && (
               <div className="kanban">
@@ -2000,10 +1928,13 @@ export default function App() {
                           </button>
                         )}
                         {(a.owner_id === user?.id || demo) && (
-                          <button className="text-button" onClick={() => {
-                            setSelectedMember(a);
-                            setModal("connectorSetup");
-                          }}>
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              setSelectedMember(a);
+                              setModal("connectorSetup");
+                            }}
+                          >
                             {tr("配置自动回复")}
                           </button>
                         )}
@@ -2089,10 +2020,20 @@ export default function App() {
             }[modal] ?? "CoNest"
           }
           close={close}
-          wide={modal === "file" || modal === "help" || modal === "connectorSetup" || !!credential}
+          wide={
+            modal === "file" ||
+            modal === "help" ||
+            modal === "connectorSetup" ||
+            !!credential
+          }
         >
           {modal === "connectorSetup" && selectedMember && (
-            <ConnectorSetup key={selectedMember.id} projectId={projectId} agentId={selectedMember.id} agentName={selectedMember.name} />
+            <ConnectorSetup
+              key={selectedMember.id}
+              projectId={projectId}
+              agentId={selectedMember.id}
+              agentName={selectedMember.name}
+            />
           )}
           {modal === "notifications" && (
             <InvitationInbox
@@ -2902,7 +2843,12 @@ function Credential({ credential }: { credential: Item }) {
           <p>{tr("凭证仅展示这一次。请保存到你的客户端配置中。")}</p>
         </div>
       </div>
-      <ConnectorSetup projectId={credential.projectId} agentId={credential.id} agentName={credential.name} token={credential.token} />
+      <ConnectorSetup
+        projectId={credential.projectId}
+        agentId={credential.id}
+        agentName={credential.name}
+        token={credential.token}
+      />
       <label>
         {tr("AI 专属凭证")}
         <CopyBox value={credential.token} />

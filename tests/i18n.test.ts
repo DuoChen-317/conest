@@ -59,6 +59,7 @@ test("translations retain interpolation fields and cover all Chinese UI keys", (
     "src/App.tsx",
     "src/CopyBox.tsx",
     "src/ConnectorSetup.tsx",
+    "src/FilesBrowser.tsx",
     "src/CollaborationUI.tsx",
     "src/api.ts",
     "src/i18n.ts",

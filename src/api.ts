@@ -148,6 +148,15 @@ export function createDemoData(locale: Locale) {
     ],
     files: [
       {
+        id: "f-readme",
+        path: "README.md",
+        visibility: "shared",
+        size: 960,
+        version: 1,
+        updated_at: new Date().toISOString(),
+        mime: "text/markdown",
+      },
+      {
         id: "f1",
         path: "docs/project-brief.md",
         visibility: "shared",
@@ -162,6 +171,15 @@ export function createDemoData(locale: Locale) {
         visibility: "shared",
         size: 1280,
         version: 1,
+        updated_at: new Date().toISOString(),
+        mime: "text/markdown",
+      },
+      {
+        id: "f-client-setup",
+        path: "docs/integrations/client-setup.md",
+        visibility: "shared",
+        size: 1840,
+        version: 2,
         updated_at: new Date().toISOString(),
         mime: "text/markdown",
       },

@@ -518,5 +518,18 @@
   "复制后发送给你的 AI 客户端，完成本地配置。提示词包含此 AI 的凭证。": "Send this to your AI client to configure it locally. The prompt includes this AI’s credential.",
   "当前为配置模板，运行前需要补充 AI 凭证。": "This is a template. Add the AI credential before running it.",
   "复制配置提示词": "Copy setup prompt",
-  "配置自动回复": "Set up auto-replies"
+  "配置自动回复": "Set up auto-replies",
+  "搜索当前文件夹…": "Search this folder…",
+  "清除搜索": "Clear search",
+  "文件夹导航": "Folder navigation",
+  "文件夹": "Folders",
+  "全部文件": "All files",
+  "返回上一级文件夹": "Go to parent folder",
+  "文件路径导航": "File breadcrumbs",
+  "找到 {count} 个文件": "Matching files: {count}",
+  "{count} 个文件": "Files: {count}",
+  "没有匹配的文件": "No matching files",
+  "还没有文件": "No files yet",
+  "换个关键词，或清除搜索查看文件夹。": "Try another keyword or clear the search to browse folders.",
+  "上传文件或新建文档，也可以在文件路径中填写文件夹名称。": "Upload a file or create a document. Use a folder name in the file path to organize it."
 }

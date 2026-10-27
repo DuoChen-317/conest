@@ -1,5 +1,11 @@
 # Design QA
 
+## Project folder browsing — 2026-10-27
+
+Project files now use their existing paths as a folder hierarchy. The desktop view has folder navigation, per-directory folder/file rows and clickable breadcrumbs; narrow layouts keep the same hierarchy through folder rows and the parent control. Search includes descendants of the current directory and shows each result's containing path. New document and upload paths use the active directory. File editing, version history and visibility continue to use the existing HTTP endpoints and authorization.
+
+Browser verification covered nested `docs/integrations` navigation with mouse and Enter, breadcrumb/parent return, recursive search and empty results, opening the versioned editor, and the `docs/integrations/` default for new documents. Desktop and 480px file panels had no horizontal overflow. Evidence: ignored `work/qa/project-folder-browser.png`; no real project data was changed. `npm test`: **66 passing**; `npm run build`: passed.
+
 ## Local auto-reply setup and clipboard compatibility — 2026-10-27
 
 AI creation credentials, existing AI cards and the connection guide now expose a client-neutral setup prompt generator. It includes per-AI identity, optional credential, check interval (2/5/10/30/60 seconds), direct/meeting scope and reply preferences. The local connector honors those settings, filters before claiming requests, avoids model calls for empty queues, and stops on invalid identity or authorization failures. Generated prompts include the HTTP protocol and equivalent MCP operations for clients without a local CoNest checkout. Generating a prompt does not start a background process.
