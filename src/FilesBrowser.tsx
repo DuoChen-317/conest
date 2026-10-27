@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   ArrowUp,
   CaretRight,
@@ -9,6 +16,7 @@ import {
   Info,
   LockSimple,
   MagnifyingGlass,
+  SidebarSimple,
   X,
 } from "@phosphor-icons/react";
 import {
@@ -35,6 +43,23 @@ export default function FilesBrowser({
 }) {
   const locale = useLocale();
   const [search, setSearch] = useState("");
+  const folderNavId = useId();
+  const [foldersOpen, setFoldersOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem("conest.files.folders-open");
+      if (saved === "true" || saved === "false") return saved === "true";
+    } catch {
+      /* Folder browsing remains available without browser storage. */
+    }
+    return !window.matchMedia("(max-width: 760px)").matches;
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("conest.files.folders-open", String(foldersOpen));
+    } catch {
+      /* Keep the current preference for this visit. */
+    }
+  }, [foldersOpen]);
   const locationRef = useRef<HTMLButtonElement>(null);
   const focusLocation = useRef(false);
   const index = useMemo(() => buildFileIndex(files, locale), [files, locale]);
@@ -91,10 +116,27 @@ export default function FilesBrowser({
       aria-label={tr("项目资料")}
     >
       <div className="files-toolbar">
-        <h2>
-          {tr("项目资料")}
-          <span>{files.length}</span>
-        </h2>
+        <div className="file-toolbar-heading">
+          <button
+            type="button"
+            className="file-folders-toggle"
+            aria-label={foldersOpen ? tr("收起文件夹栏") : tr("展开文件夹栏")}
+            title={foldersOpen ? tr("收起文件夹栏") : tr("展开文件夹栏")}
+            aria-expanded={foldersOpen}
+            aria-controls={folderNavId}
+            onClick={() => setFoldersOpen((open) => !open)}
+          >
+            <SidebarSimple
+              size={21}
+              weight={foldersOpen ? "duotone" : "regular"}
+              aria-hidden="true"
+            />
+          </button>
+          <h2>
+            {tr("项目资料")}
+            <span>{files.length}</span>
+          </h2>
+        </div>
         <label className="search">
           <MagnifyingGlass size={17} aria-hidden="true" />
           <input
@@ -115,8 +157,15 @@ export default function FilesBrowser({
           )}
         </label>
       </div>
-      <div className="file-browser-layout">
-        <nav className="file-directory-nav" aria-label={tr("文件夹导航")}>
+      <div
+        className={`file-browser-layout${foldersOpen ? "" : " folders-collapsed"}`}
+      >
+        <nav
+          id={folderNavId}
+          hidden={!foldersOpen}
+          className="file-directory-nav"
+          aria-label={tr("文件夹导航")}
+        >
           <p>{tr("文件夹")}</p>
           <button
             type="button"

@@ -443,31 +443,13 @@ export default function HouseWorld({
   const visibleOffices = offices.slice(page * 3, page * 3 + 3);
   const [sceneReady, setSceneReady] = useState(false);
   useEffect(() => {
-    const mobile =
-      matchMedia("(max-width: 760px)").matches && !compact && !expanded;
-    const factor = compact && !expanded ? 1.85 : mobile ? 1.6 : 1;
+    const factor = compact && !expanded ? 1.85 : 1;
     const fit =
       Math.min(dimensions.width / worldWidth, dimensions.height / worldHeight) *
       factor;
     setZoom(factor);
     setPan({
-      x: mobile
-        ? Math.max(
-            -Math.max(0, (worldWidth * fit - dimensions.width) / 2),
-            Math.min(
-              Math.max(0, (worldWidth * fit - dimensions.width) / 2),
-              (50 -
-                [18.5, 50, 80.8][
-                  Math.max(
-                    0,
-                    offices.findIndex((office) => office.ownerId === ownId),
-                  ) % 3
-                ]) *
-                (worldWidth / 100) *
-                fit,
-            ),
-          )
-        : 0,
+      x: 0,
       y:
         compact && !expanded
           ? -Math.min(

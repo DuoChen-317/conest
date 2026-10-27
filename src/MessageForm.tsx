@@ -51,16 +51,18 @@ export default function MessageForm({
         maxLength={12000}
         disabled={disabled || sending}
       />
-      <span className="chat-keyboard-hint">
-        {tr("Enter 发送 · Shift + Enter 换行")}
-      </span>
-      <button
-        className="send-button"
-        aria-label={tr("发送消息")}
-        disabled={disabled || sending || !body.trim()}
-      >
-        <PaperPlaneTilt size={19} weight="fill" />
-      </button>
+      <div className="message-form-footer">
+        <span className="chat-keyboard-hint">
+          {tr("Enter 发送 · Shift + Enter 换行")}
+        </span>
+        <button
+          className="send-button"
+          aria-label={tr("发送消息")}
+          disabled={disabled || sending || !body.trim()}
+        >
+          <PaperPlaneTilt size={19} weight="fill" />
+        </button>
+      </div>
     </form>
   );
 }

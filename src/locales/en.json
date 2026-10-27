@@ -522,6 +522,8 @@
   "搜索当前文件夹…": "Search this folder…",
   "清除搜索": "Clear search",
   "文件夹导航": "Folder navigation",
+  "收起文件夹栏": "Hide folders",
+  "展开文件夹栏": "Show folders",
   "文件夹": "Folders",
   "全部文件": "All files",
   "返回上一级文件夹": "Go to parent folder",
