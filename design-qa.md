@@ -1,5 +1,11 @@
 # Design QA
 
+## Resizable office and chat keyboard behavior — 2026-10-27
+
+The homepage scene now follows its authored aspect ratio rather than a fixed 480px height. At the checked 1280px desktop width, the full office uses a 686×629 viewport; the previous viewport was 686×480. Pointer and keyboard splitters adjust office/chat width and scene height, restore defaults on double-click, and retain sizes across an immediate reload. Expanded scenes also follow the authored aspect ratio. Compact file/meeting scenes retain their previous sizes, and narrow screens use a stacked layout without horizontal overflow.
+
+Office, lounge and meeting messages share `MessageForm`; that form and direct AI conversations now use the same Enter handling. Enter submits, Shift+Enter preserves newlines, IME confirmation passes through, and repeated Enter/pending submissions cannot duplicate the send. Focus returns to the input after sending when another control has not been selected. Browser-only fixtures verified actual submit and direct-conversation POST handlers without sending real project messages. Screenshot: ignored `work/qa/office-resizable-chat.png`. `npm test`: **71 passing**; `npm run build`: passed. This entry covers the local preview; the combined server rollout is verified separately.
+
 ## Project folder browsing — 2026-10-27
 
 Project files now use their existing paths as a folder hierarchy. The desktop view has folder navigation, per-directory folder/file rows and clickable breadcrumbs; narrow layouts keep the same hierarchy through folder rows and the parent control. Search includes descendants of the current directory and shows each result's containing path. New document and upload paths use the active directory. File editing, version history and visibility continue to use the existing HTTP endpoints and authorization.

@@ -443,7 +443,8 @@ export default function HouseWorld({
   const visibleOffices = offices.slice(page * 3, page * 3 + 3);
   const [sceneReady, setSceneReady] = useState(false);
   useEffect(() => {
-    const mobile = dimensions.width < 600 && !compact && !expanded;
+    const mobile =
+      matchMedia("(max-width: 760px)").matches && !compact && !expanded;
     const factor = compact && !expanded ? 1.85 : mobile ? 1.6 : 1;
     const fit =
       Math.min(dimensions.width / worldWidth, dimensions.height / worldHeight) *
@@ -632,6 +633,11 @@ export default function HouseWorld({
     <section
       className={`house-world ${assets ? "licensed" : ""} ${compact && !expanded ? "compact" : ""} ${expanded ? "expanded" : ""}`}
       aria-label={tr("共享办公室场景")}
+      style={
+        {
+          "--office-world-ratio": `${worldWidth} / ${worldHeight}`,
+        } as React.CSSProperties
+      }
     >
       <header className="house-toolbar">
         <div>

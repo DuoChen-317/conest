@@ -8,6 +8,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { tr, getLocale, localizeError } from "./i18n";
 import { api, time, type Item } from "./api";
+import ChatTextarea from "./ChatTextarea";
 
 const invitationLabels: Record<string, string> = {
   pending: "待回应",
@@ -397,6 +398,7 @@ export function DirectConversation({
   const [messages, setMessages] = useState<Item[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const sendingNow = useRef(false);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
   const endpoint = `/projects/${projectId}/conversations/${conversation.id}/messages`;
@@ -508,7 +510,8 @@ export function DirectConversation({
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            if (!draft.trim() || busy) return;
+            if (!draft.trim() || busy || !canSend || sendingNow.current) return;
+            sendingNow.current = true;
             setBusy(true);
             setError("");
             try {
@@ -518,13 +521,14 @@ export function DirectConversation({
             } catch (e) {
               setError((e as Error).message);
             } finally {
+              sendingNow.current = false;
               setBusy(false);
             }
           }}
         >
           <label>
             {tr("向 AI 提问")}
-            <textarea
+            <ChatTextarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               maxLength={12000}
@@ -532,6 +536,9 @@ export function DirectConversation({
               disabled={busy}
             />
           </label>
+          <p className="chat-keyboard-hint">
+            {tr("Enter 发送 · Shift + Enter 换行")}
+          </p>
           <button
             className="button primary full"
             disabled={busy || !draft.trim()}

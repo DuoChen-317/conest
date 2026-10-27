@@ -16,7 +16,6 @@ import {
   ArrowUpRight,
   ArrowLeft,
   X,
-  PaperPlaneTilt,
   Robot,
   Check,
   SignOut,
@@ -52,6 +51,8 @@ import HouseWorld, { SceneSprite } from "./HouseWorld";
 import CopyBox from "./CopyBox";
 import ConnectorSetup from "./ConnectorSetup";
 import FilesBrowser from "./FilesBrowser";
+import OfficeWorkspace from "./OfficeWorkspace";
+import MessageForm from "./MessageForm";
 import { pathInDirectory } from "./file-browser";
 import type { Room } from "./house";
 import {
@@ -1184,19 +1185,19 @@ export default function App() {
               </div>
             )}
             {["office", "meetings", "files"].includes(tab) && (
-              <div
-                className={
-                  tab === "office" ? "house-and-office" : "house-room-view"
+              <OfficeWorkspace
+                active={tab === "office"}
+                scene={
+                  <HouseWorld
+                    data={data}
+                    ownId={demo ? "demo-human" : user!.id}
+                    demo={demo}
+                    ownWorking={ownWorking}
+                    recentMessages={messages}
+                    compact={tab !== "office"}
+                  />
                 }
               >
-                <HouseWorld
-                  data={data}
-                  ownId={demo ? "demo-human" : user!.id}
-                  demo={demo}
-                  ownWorking={ownWorking}
-                  recentMessages={messages}
-                  compact={tab !== "office"}
-                />
                 {tab === "office" && (
                   <section className="office-conversation">
                     <div className="office-conversation-heading">
@@ -1272,7 +1273,7 @@ export default function App() {
                     </p>
                   </section>
                 )}
-              </div>
+              </OfficeWorkspace>
             )}
             {tab === "office" && (
               <div className="office-layout">
@@ -2689,61 +2690,6 @@ export default function App() {
         </div>
       )}
     </div>
-  );
-}
-function MessageForm({
-  onDraftChange,
-  send,
-  disabled,
-  placeholder,
-}: {
-  onDraftChange?: (working: boolean) => void;
-  send: (body: string) => Promise<any>;
-  disabled: boolean;
-  placeholder: string;
-}) {
-  const [body, setBody] = useState(""),
-    [sending, setSending] = useState(false);
-  const working = Boolean(body.trim());
-  useEffect(() => {
-    onDraftChange?.(working);
-    return () => onDraftChange?.(false);
-  }, [working, onDraftChange]);
-  return (
-    <form
-      className="message-form"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!body.trim()) return;
-        setSending(true);
-        try {
-          const sent = await send(body);
-          if (sent !== false) setBody("");
-        } finally {
-          setSending(false);
-        }
-      }}
-    >
-      <label className="sr-only" htmlFor="message-body">
-        {tr("消息内容")}
-      </label>
-      <textarea
-        id="message-body"
-        rows={2}
-        placeholder={placeholder}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        maxLength={12000}
-        disabled={disabled || sending}
-      />
-      <button
-        className="send-button"
-        aria-label={tr("发送消息")}
-        disabled={disabled || sending || !body.trim()}
-      >
-        <PaperPlaneTilt size={19} weight="fill" />
-      </button>
-    </form>
   );
 }
 function Chat({

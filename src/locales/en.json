@@ -531,5 +531,11 @@
   "没有匹配的文件": "No matching files",
   "还没有文件": "No files yet",
   "换个关键词，或清除搜索查看文件夹。": "Try another keyword or clear the search to browse folders.",
-  "上传文件或新建文档，也可以在文件路径中填写文件夹名称。": "Upload a file or create a document. Use a folder name in the file path to organize it."
+  "上传文件或新建文档，也可以在文件路径中填写文件夹名称。": "Upload a file or create a document. Use a folder name in the file path to organize it.",
+  "调整办公室高度": "Resize office height",
+  "拖动调整高度；上下方向键调整，双击恢复自动高度。": "Drag to resize the height. Use Up/Down keys; double-click to restore automatic height.",
+  "调整办公室与聊天宽度": "Resize office and chat",
+  "办公室宽度 {percent}%": "Office width {percent}%",
+  "拖动调整宽度；左右方向键调整，双击恢复默认比例。": "Drag to resize the panels. Use Left/Right keys; double-click to reset.",
+  "Enter 发送 · Shift + Enter 换行": "Enter to send · Shift + Enter for a new line"
 }
