@@ -2,13 +2,12 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { localToken } from "./credentials.ts";
 const url = (process.env.CONEST_URL ?? "http://127.0.0.1:4173").replace(
   /\/$/,
   "",
 );
-const token = process.env.CONEST_TOKEN;
-if (!token)
-  throw new Error("Set CONEST_TOKEN to your AI credential. Never commit it.");
+const token = await localToken(process.env);
 const controller = new AbortController();
 for (const signal of ["SIGINT", "SIGTERM"] as const)
   process.on(signal, () => controller.abort());

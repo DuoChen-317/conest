@@ -677,6 +677,9 @@ test("CoNest: two independent clients collaborate with enforced identity, permis
         assert.ok(list.tools.some((t) => t.name === "send_message"));
         assert.ok(list.tools.some((t) => t.name === "read_file"));
         assert.ok(list.tools.some((t) => t.name === "set_presence"));
+        assert.ok(list.tools.some((t) => t.name === "read_chat_history"));
+        assert.ok(list.tools.some((t) => t.name === "get_chat_summary"));
+        assert.ok(list.tools.some((t) => t.name === "get_chat_context"));
         const privateReply: any = await client.callTool({
           name: "send_office_message",
           arguments: { body: "A private MCP office reply" },
@@ -691,6 +694,28 @@ test("CoNest: two independent clients collaborate with enforced identity, permis
         });
         assert.equal(
           JSON.parse(office.content[0].text).at(-1).body,
+          "A private MCP office reply",
+        );
+        const history: any = await client.callTool({
+          name: "read_chat_history",
+          arguments: { kind: "office", limit: 1 },
+        });
+        assert.equal(
+          JSON.parse(history.content[0].text).items[0].body,
+          "A private MCP office reply",
+        );
+        const summaries: any = await client.callTool({
+          name: "get_chat_summary",
+          arguments: { kind: "office" },
+        });
+        assert.equal(summaries.isError, undefined);
+        assert.ok(Array.isArray(JSON.parse(summaries.content[0].text)));
+        const prepared: any = await client.callTool({
+          name: "get_chat_context",
+          arguments: { kind: "office", question: "Continue" },
+        });
+        assert.equal(
+          JSON.parse(prepared.content[0].text).messages.at(-1).body,
           "A private MCP office reply",
         );
         const location: any = await client.callTool({

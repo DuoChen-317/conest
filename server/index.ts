@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { createApp } from "./app.ts";
 import express from "express";
+import { Maintenance } from "./maintenance.ts";
 
 const args = process.argv.slice(2);
 const portIndex = args.indexOf("--port");
@@ -11,12 +12,21 @@ const port = Number(
 const hostIndex = args.indexOf("--host");
 const host =
   hostIndex >= 0 ? args[hostIndex + 1] : (process.env.HOST ?? "127.0.0.1");
-const { app, store } = createApp({
+const { app, store, service } = createApp({
   database: resolve(process.env.DATA_DIR ?? "data", "conest.sqlite"),
   publicOrigin: process.env.PUBLIC_ORIGIN,
   secureCookies: process.env.SECURE_COOKIES === "1",
   trustProxy: process.env.TRUST_PROXY === "1",
 });
+const maintenance = new Maintenance(
+  service,
+  resolve(
+    process.env.BACKUP_DIR ??
+      resolve(process.env.DATA_DIR ?? "data", "backups"),
+  ),
+  Number(process.env.BACKUP_KEEP ?? 7),
+);
+maintenance.start(Number(process.env.BACKUP_INTERVAL_HOURS ?? 24));
 // Purchased art is an optional local runtime pack, never bundled in the repository.
 const sceneAssets = resolve(
   process.env.SCENE_ASSET_DIR ??
@@ -61,8 +71,9 @@ const http = app.listen(port, host, () =>
 for (const signal of ["SIGINT", "SIGTERM"] as const)
   process.on(signal, () => {
     http.closeAllConnections();
-    http.close(() => {
-      void vite?.close();
+    http.close(async () => {
+      await vite?.close();
+      await maintenance.stop().catch(() => {});
       store.close();
       process.exit(0);
     });

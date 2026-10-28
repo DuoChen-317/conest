@@ -933,8 +933,13 @@ test("model adapters use official text endpoints without granting tools or sendi
         const body = JSON.parse(init!.body as string);
         assert.equal(body.model, "owner-selected-model");
         assert.equal(body.tools, undefined);
+        assert.match(
+          body.instructions ?? body.system,
+          /current question and newer explicit user corrections take precedence/i,
+        );
         assert.ok(!JSON.stringify(body).includes("not-forwarded-lease"));
         assert.ok(!JSON.stringify(body).includes("not-forwarded-request"));
+        assert.ok(JSON.stringify(body).includes("history-source-id"));
         return Response.json(
           provider === "openai"
             ? {
@@ -959,6 +964,18 @@ test("model adapters use official text endpoints without granting tools or sendi
           sharedFiles: [],
           meeting: null,
           messages: [],
+          memory: [
+            {
+              method: "extractive",
+              extracts: [
+                {
+                  messageId: "history-source-id",
+                  name: "Alice",
+                  quote: "Older quotation",
+                },
+              ],
+            },
+          ],
           trigger: { name: "Alice", body: "Question" },
         },
         new AbortController().signal,

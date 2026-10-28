@@ -15,6 +15,9 @@ import {
 } from "./store.ts";
 import { Service, ApiError, requireThat, type Actor } from "./service.ts";
 import { handleMcp } from "./mcp.ts";
+import { Pairing } from "./pairing.ts";
+import { scopeSchema } from "./history.ts";
+import { readFileSync } from "node:fs";
 
 type Options = {
   database: string;
@@ -25,6 +28,7 @@ type Options = {
 export function createApp(options: Options) {
   const store = new Store(options.database);
   const service = new Service(store);
+  const pairing = new Pairing(service);
   const app = express();
   app.disable("x-powered-by");
   if (options.trustProxy) app.set("trust proxy", 1);
@@ -76,18 +80,34 @@ export function createApp(options: Options) {
   const authenticate = (req: Request, res: Response, next: NextFunction) => {
     const token = /^Bearer (.+)$/i.exec(req.headers.authorization ?? "")?.[1];
     if (token) {
-      const agent = store.one(
+      let agent = store.one(
         "SELECT * FROM agents WHERE token_hash=? AND revoked=0",
         hash(token),
       );
+      const credential = agent
+        ? undefined
+        : store.one(
+            "SELECT c.id credential_id,a.* FROM agent_credentials c JOIN agents a ON a.id=c.agent_id WHERE c.token_hash=? AND a.revoked=0",
+            hash(token),
+          );
+      if (!agent && credential) agent = credential;
       if (!agent) return next(new ApiError(401, "Invalid AI credential"));
       store.run("UPDATE agents SET last_seen=? WHERE id=?", now(), agent.id);
+      if (credential)
+        store.run(
+          "UPDATE agent_credentials SET last_seen=?,mcp_seen=CASE WHEN ?='/mcp' THEN ? ELSE mcp_seen END WHERE id=?",
+          now(),
+          req.path,
+          now(),
+          credential.credential_id,
+        );
       res.locals.actor = {
         id: agent.id,
         userId: agent.owner_id,
         name: agent.name,
         type: "agent",
         projectId: agent.project_id,
+        ...(credential ? { credentialId: credential.credential_id } : {}),
       } satisfies Actor;
       return next();
     }
@@ -191,9 +211,367 @@ export function createApp(options: Options) {
     }),
   );
   const dummyPassword = passwordHash(secret());
+  // Pairing codes authorize a request only. The owner must approve before a credential works.
+  const pairingPolls = new Map<string, { count: number; until: number }>();
+  const limitPairing = (req: Request, _res: Response, next: NextFunction) => {
+    const key = req.ip ?? "unknown",
+      time = Date.now();
+    let entry = pairingPolls.get(key);
+    if (!entry || entry.until < time) {
+      if (pairingPolls.size > 10000)
+        for (const [k, v] of pairingPolls)
+          if (v.until < time) pairingPolls.delete(k);
+      if (pairingPolls.size > 10000)
+        return next(new ApiError(429, "Too many connection requests"));
+      pairingPolls.set(key, (entry = { count: 0, until: time + 60000 }));
+    }
+    if (++entry.count > 120)
+      return next(new ApiError(429, "Too many connection requests"));
+    next();
+  };
+  app.post(
+    "/api/connect/claim",
+    limitPairing,
+    route((req, res) => res.json(pairing.claim(req.body))),
+  );
+  app.post(
+    "/api/connect/poll",
+    limitPairing,
+    route((req, res) => res.json(pairing.poll(req.body))),
+  );
+  app.get("/api/connect/bootstrap", (_req, res) => {
+    res
+      .type("text/javascript")
+      .send(
+        readFileSync(new URL("../examples/pair.mjs", import.meta.url), "utf8"),
+      );
+  });
   app.use("/api", authenticate);
+  app.post(
+    "/api/projects/:projectId/agents/:agentId/pairings",
+    route((req, res) => {
+      const result = pairing.create(
+        current(res),
+        String(req.params.projectId),
+        String(req.params.agentId),
+      );
+      res.status(201).json({
+        ...result,
+        bootstrapSha256: hash(
+          readFileSync(
+            new URL("../examples/pair.mjs", import.meta.url),
+            "utf8",
+          ),
+        ),
+      });
+    }),
+  );
+  app.get(
+    "/api/projects/:projectId/agents/:agentId/pairings/latest",
+    route((req, res) =>
+      res.json(
+        pairing.latest(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.agentId),
+        ),
+      ),
+    ),
+  );
+  app.get(
+    "/api/connect/requests/:pairingId",
+    route((req, res) =>
+      res.json(pairing.status(current(res), String(req.params.pairingId))),
+    ),
+  );
+  app.patch(
+    "/api/connect/requests/:pairingId",
+    route((req, res) =>
+      res.json(
+        pairing.respond(current(res), String(req.params.pairingId), req.body),
+      ),
+    ),
+  );
   app.get("/api/me", (_req, res) =>
     res.json({ actor: current(res), user: res.locals.user }),
+  );
+  const gitRoot = "/api/projects/:projectId/git";
+  app.get(
+    gitRoot,
+    route((req, res) =>
+      res.json(service.git.list(current(res), String(req.params.projectId))),
+    ),
+  );
+  app.put(
+    `${gitRoot}/repository`,
+    route((req, res) =>
+      res.json(
+        service.git.repository(
+          current(res),
+          String(req.params.projectId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.post(
+    `${gitRoot}/workspaces`,
+    route((req, res) =>
+      res
+        .status(201)
+        .json(
+          service.git.create(
+            current(res),
+            String(req.params.projectId),
+            req.body,
+          ),
+        ),
+    ),
+  );
+  const gitWorkspace = `${gitRoot}/workspaces/:workspaceId`;
+  app.patch(
+    gitWorkspace,
+    route((req, res) =>
+      res.json(
+        service.git.change(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.workspaceId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.post(
+    `${gitWorkspace}/hello`,
+    route((req, res) =>
+      res.json(
+        service.git.hello(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.workspaceId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.get(
+    `${gitWorkspace}/state`,
+    route((req, res) =>
+      res.json(
+        service.git.state(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.workspaceId),
+          req.get("X-Conest-Runner"),
+        ),
+      ),
+    ),
+  );
+  app.post(
+    `${gitWorkspace}/local-jobs`,
+    route((req, res) =>
+      res
+        .status(201)
+        .json(
+          service.git.localEnqueue(
+            current(res),
+            String(req.params.projectId),
+            String(req.params.workspaceId),
+            req.get("X-Conest-Runner"),
+            req.body,
+          ),
+        ),
+    ),
+  );
+  app.get(
+    `${gitWorkspace}/local-jobs/:jobId`,
+    route((req, res) =>
+      res.json(
+        service.git.localJob(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.workspaceId),
+          req.get("X-Conest-Runner"),
+          String(req.params.jobId),
+        ),
+      ),
+    ),
+  );
+  app.post(
+    `${gitWorkspace}/authorize`,
+    route((req, res) =>
+      res.json(
+        service.git.authorization(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.workspaceId),
+          req.get("X-Conest-Runner"),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.post(
+    `${gitWorkspace}/jobs`,
+    route((req, res) =>
+      res
+        .status(201)
+        .json(
+          service.git.enqueue(
+            current(res),
+            String(req.params.projectId),
+            String(req.params.workspaceId),
+            req.body,
+          ),
+        ),
+    ),
+  );
+  app.get(
+    `${gitWorkspace}/jobs/:jobId`,
+    route((req, res) =>
+      res.json(
+        service.git.job(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.workspaceId),
+          String(req.params.jobId),
+        ),
+      ),
+    ),
+  );
+  app.post(
+    `${gitWorkspace}/claim`,
+    route((req, res) =>
+      res.json(
+        service.git.claim(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.workspaceId),
+          req.get("X-Conest-Runner"),
+        ),
+      ),
+    ),
+  );
+  app.post(
+    `${gitWorkspace}/jobs/:jobId/finish`,
+    route((req, res) =>
+      res.json(
+        service.git.finish(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.workspaceId),
+          req.get("X-Conest-Runner"),
+          String(req.params.jobId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  const chatRoot = "/api/projects/:projectId/chat";
+  app.get(
+    `${chatRoot}/threads`,
+    route((req, res) =>
+      res.json(
+        service.history.threads(current(res), String(req.params.projectId)),
+      ),
+    ),
+  );
+  app.get(
+    `${chatRoot}/history`,
+    route((req, res) =>
+      res.json(
+        service.history.page(
+          current(res),
+          String(req.params.projectId),
+          req.query,
+        ),
+      ),
+    ),
+  );
+  app.get(
+    `${chatRoot}/summaries`,
+    route((req, res) =>
+      res.json(
+        service.history.summaries(
+          current(res),
+          String(req.params.projectId),
+          req.query,
+        ),
+      ),
+    ),
+  );
+  app.post(
+    `${chatRoot}/context`,
+    route((req, res) =>
+      res.json(
+        service.history.context(
+          current(res),
+          String(req.params.projectId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.patch(
+    `${chatRoot}/preferences`,
+    route((req, res) =>
+      res.json(
+        service.history.preferences(
+          current(res),
+          String(req.params.projectId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.patch(
+    `${chatRoot}/messages/:messageId`,
+    route((req, res) =>
+      res.json(
+        service.history.changeMessage(
+          current(res),
+          String(req.params.projectId),
+          String(req.params.messageId),
+          req.body,
+        ),
+      ),
+    ),
+  );
+  app.get(
+    `${chatRoot}/export`,
+    route(async (req, res) => {
+      const data = scopeSchema
+        .extend({ format: z.enum(["json", "md"]).default("json") })
+        .parse(req.query);
+      const actor = current(res),
+        projectId = String(req.params.projectId);
+      service.history.resolve(actor, projectId, data);
+      res.setHeader(
+        "Content-Type",
+        data.format === "json"
+          ? "application/json; charset=utf-8"
+          : "text/markdown; charset=utf-8",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="conest-chat.${data.format}"`,
+      );
+      for (const chunk of service.history.export(actor, projectId, data)) {
+        if (res.destroyed) break;
+        if (!res.write(chunk))
+          await new Promise<void>((resolve) => {
+            const done = () => {
+              res.off("drain", done);
+              res.off("close", done);
+              resolve();
+            };
+            res.once("drain", done);
+            res.once("close", done);
+          });
+      }
+      res.end();
+    }),
   );
   app.get(
     "/api/notifications",
@@ -670,7 +1048,10 @@ export function createApp(options: Options) {
     res.status(404).json({ error: "Endpoint not found" }),
   );
   app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
-    if (res.headersSent) return;
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
     if (error instanceof z.ZodError)
       return res.status(400).json({
         code: "VALIDATION_ERROR",

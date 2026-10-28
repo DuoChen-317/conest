@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { id, now, type Row } from "./store.ts";
 import { requireThat, type Actor, type Service } from "./service.ts";
+import { recentContext } from "./context.ts";
 
 const bodySchema = z.string().trim().min(1).max(12000);
 const leaseMilliseconds = 180000;
@@ -78,9 +79,14 @@ export class Conversations {
 
   messages(actor: Actor, projectId: string, conversationId: string) {
     this.conversation(actor, projectId, conversationId);
-    return this.store.all(
-      "SELECT * FROM (SELECT m.*,m.rowid sequence,r.id request_id,r.status request_status FROM direct_messages m LEFT JOIN agent_requests r ON r.message_id=m.id WHERE m.conversation_id=? ORDER BY m.rowid DESC LIMIT 200) ORDER BY sequence",
-      conversationId,
+    return this.service.history.decorateRows(
+      actor,
+      projectId,
+      { kind: "direct", conversationId },
+      this.store.all(
+        "SELECT * FROM (SELECT m.*,m.rowid sequence,r.id request_id,r.status request_status FROM direct_messages m LEFT JOIN agent_requests r ON r.message_id=m.id WHERE m.conversation_id=? ORDER BY m.rowid DESC LIMIT 200) ORDER BY sequence",
+        conversationId,
+      ),
     );
   }
 
@@ -202,6 +208,11 @@ export class Conversations {
       actor.id,
     );
     requireThat(request, 404, "AI request not found");
+    const source = this.store.one(
+      `SELECT body FROM ${request.conversation_id ? "direct_messages" : "messages"} WHERE id=?`,
+      request.message_id,
+    );
+    requireThat(source?.body, 409, "Source message is no longer available");
     if (request.conversation_id)
       this.conversation(actor, projectId, request.conversation_id, true);
     else this.service.meeting(actor, projectId, request.meeting_id, true);
@@ -261,13 +272,18 @@ export class Conversations {
           request.message_id,
           requestId,
         )
-      : this.service.readMessages(actor, projectId, request.meeting_id);
+      : this.store.all(
+          "SELECT * FROM (SELECT m.*,m.rowid sequence FROM messages m WHERE m.project_id=? AND m.meeting_id=? AND m.rowid<=(SELECT rowid FROM messages WHERE id=?) ORDER BY m.rowid DESC LIMIT 30) ORDER BY sequence",
+          projectId,
+          request.meeting_id,
+          request.message_id,
+        );
     const messageIndex = messages.findIndex((m) => m.id === request.message_id);
     const trigger =
       messageIndex >= 0
         ? messages[messageIndex]
         : this.store.one(
-            `SELECT * FROM ${request.conversation_id ? "direct_messages" : "messages"} WHERE id=?`,
+            `SELECT *,rowid sequence FROM ${request.conversation_id ? "direct_messages" : "messages"} WHERE id=?`,
             request.message_id,
           )!;
     const history = request.conversation_id
@@ -287,11 +303,21 @@ export class Conversations {
             request.meeting_id,
           )
         : null,
-      messages: history.map((m) => ({
-        name: m.actor_name,
-        role: m.actor_type,
-        body: m.body,
-      })),
+      memory: this.service.history.retrieve(
+        actor,
+        projectId,
+        request.conversation_id
+          ? { kind: "direct", conversationId: request.conversation_id }
+          : { kind: "meeting", meetingId: request.meeting_id },
+        trigger.body,
+        history,
+        trigger.sequence ??
+          this.store.one(
+            `SELECT rowid sequence FROM ${request.conversation_id ? "direct_messages" : "messages"} WHERE id=?`,
+            trigger.id,
+          )!.sequence,
+      ),
+      messages: recentContext(history, trigger),
       trigger: { name: trigger.actor_name, body: trigger.body },
     };
   }
@@ -372,6 +398,11 @@ export class Conversations {
       409,
       "Only failed AI requests can be retried",
     );
+    const source = this.store.one(
+      `SELECT body FROM ${request.conversation_id ? "direct_messages" : "messages"} WHERE id=?`,
+      request.message_id,
+    );
+    requireThat(source?.body, 409, "Source message is no longer available");
     this.store.run(
       "UPDATE agent_requests SET status='queued',lease_id=NULL,claimed_at=NULL WHERE id=?",
       requestId,

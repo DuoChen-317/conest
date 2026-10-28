@@ -60,6 +60,20 @@ export class Store {
       CREATE TABLE IF NOT EXISTS message_targets(message_id TEXT NOT NULL REFERENCES messages(id), agent_id TEXT NOT NULL REFERENCES agents(id), PRIMARY KEY(message_id,agent_id));
       CREATE TABLE IF NOT EXISTS agent_requests(id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), agent_id TEXT NOT NULL REFERENCES agents(id), message_id TEXT NOT NULL, conversation_id TEXT REFERENCES direct_conversations(id), meeting_id TEXT REFERENCES meetings(id), status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued','processing','replied','failed')), lease_id TEXT, claimed_at TEXT, reply_id TEXT, created_at TEXT NOT NULL, UNIQUE(message_id,agent_id));
       CREATE INDEX IF NOT EXISTS agent_request_queue ON agent_requests(project_id,agent_id,status,created_at);
+      CREATE TABLE IF NOT EXISTS agent_credentials(id TEXT PRIMARY KEY,agent_id TEXT NOT NULL REFERENCES agents(id),token_hash TEXT UNIQUE NOT NULL,created_at TEXT NOT NULL,last_seen TEXT,mcp_seen TEXT);
+      CREATE TABLE IF NOT EXISTS agent_pairings(id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(id),agent_id TEXT NOT NULL REFERENCES agents(id),owner_id TEXT NOT NULL REFERENCES users(id),code_hash TEXT UNIQUE NOT NULL,expires_at TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'waiting',credential_hash TEXT,client_name TEXT,created_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS chat_preferences(viewer_id TEXT NOT NULL REFERENCES users(id),thread_key TEXT NOT NULL,group_name TEXT NOT NULL DEFAULT '',archived INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(viewer_id,thread_key));
+      CREATE TABLE IF NOT EXISTS chat_hidden(viewer_id TEXT NOT NULL REFERENCES users(id),thread_key TEXT NOT NULL,message_id TEXT NOT NULL,PRIMARY KEY(viewer_id,thread_key,message_id));
+      CREATE TABLE IF NOT EXISTS chat_redactions(thread_key TEXT NOT NULL,message_id TEXT NOT NULL,reason TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(thread_key,message_id));
+      CREATE TABLE IF NOT EXISTS chat_policies(thread_key TEXT PRIMARY KEY,project_id TEXT NOT NULL,kind TEXT NOT NULL,target_id TEXT,owner_id TEXT,days INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE IF NOT EXISTS chat_summaries(id TEXT PRIMARY KEY,thread_key TEXT NOT NULL,first_sequence INTEGER NOT NULL,last_sequence INTEGER NOT NULL,source_count INTEGER NOT NULL,extracts TEXT NOT NULL,created_at TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS chat_summary_thread ON chat_summaries(thread_key,last_sequence);
+      CREATE TABLE IF NOT EXISTS git_repositories(project_id TEXT PRIMARY KEY REFERENCES projects(id),remote_url TEXT NOT NULL,base_branch TEXT NOT NULL,updated_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS git_workspaces(id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(id),owner_id TEXT NOT NULL REFERENCES users(id),agent_id TEXT NOT NULL REFERENCES agents(id),task_id TEXT REFERENCES tasks(id),remote_url TEXT NOT NULL,base_branch TEXT NOT NULL,allow_write INTEGER NOT NULL,allow_push INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'waiting',device_hash TEXT,client_name TEXT,last_seen TEXT,summary TEXT,created_at TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS git_workspace_owner ON git_workspaces(project_id,owner_id);
+      CREATE TABLE IF NOT EXISTS git_jobs(id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL REFERENCES git_workspaces(id),action TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'queued',lease_id TEXT,claimed_at TEXT,result TEXT,error TEXT,created_at TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS git_job_workspace ON git_jobs(workspace_id,created_at);
+      CREATE TABLE IF NOT EXISTS git_reviews(id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(id),workspace_id TEXT NOT NULL REFERENCES git_workspaces(id),task_id TEXT REFERENCES tasks(id),owner_id TEXT NOT NULL REFERENCES users(id),branch TEXT NOT NULL,commit_id TEXT NOT NULL,review_url TEXT,created_at TEXT NOT NULL);
     `);
     // Preserve access for AI participants invited before explicit approval existed.
     this.db

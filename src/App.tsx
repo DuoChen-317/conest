@@ -51,8 +51,12 @@ import HouseWorld, { SceneSprite } from "./HouseWorld";
 import CopyBox from "./CopyBox";
 import ConnectorSetup from "./ConnectorSetup";
 import FilesBrowser from "./FilesBrowser";
+import GitPanel from "./GitPanel";
 import OfficeWorkspace from "./OfficeWorkspace";
 import MessageForm from "./MessageForm";
+import ChatHistory from "./ChatHistory";
+import ChatTimeline, { MessageActions } from "./ChatTimeline";
+import type { ChatScope } from "./chat-timeline";
 import { pathInDirectory } from "./file-browser";
 import type { Room } from "./house";
 import {
@@ -1087,7 +1091,7 @@ export default function App() {
                     : tab === "meetings"
                       ? tr("让不同的背景和想法，在这里碰面。")
                       : tab === "files"
-                        ? tr("同一个项目，始终有据可查的每一次修改。")
+                        ? tr("查看代码改动，或管理共享文档与附件。")
                         : tab === "tasks"
                           ? tr("从一个决定，到每个人手里的下一步。")
                           : tr("人和 AI 各有身份，共同参与这个项目。")}
@@ -1233,8 +1237,20 @@ export default function App() {
                         {tr("公共留言板")}
                       </button>
                     </div>
+                    {!demo && (
+                      <ChatHistory
+                        projectId={projectId}
+                        scope={{ kind: chatScope }}
+                      />
+                    )}
                     {messages.length ? (
-                      <Chat messages={messages} agents={data.agents} />
+                      <Chat
+                        currentUserId={user?.id}
+                        messages={messages}
+                        agents={data.agents}
+                        projectId={demo ? undefined : projectId}
+                        scope={{ kind: chatScope }}
+                      />
                     ) : (
                       <div className="office-chat-empty">
                         <SceneSprite robot size={60} />
@@ -1547,7 +1563,21 @@ export default function App() {
                         presence={data.presence ?? []}
                         ended={selectedMeeting.status === "ended"}
                       />
+                      {!demo && (
+                        <ChatHistory
+                          projectId={projectId}
+                          scope={{
+                            kind: "meeting",
+                            meetingId: meetingId ?? undefined,
+                          }}
+                        />
+                      )}
                       <Chat
+                        projectId={demo ? undefined : projectId}
+                        scope={{
+                          kind: "meeting",
+                          meetingId: meetingId ?? undefined,
+                        }}
                         messages={messages}
                         agents={data.agents}
                         currentUserId={user?.id}
@@ -1732,13 +1762,23 @@ export default function App() {
               </div>
             )}
             {tab === "files" && (
-              <FilesBrowser
-                key={data.project.id}
-                files={data.files}
-                directory={fileDirectory}
-                navigate={setFileDirectory}
-                openFile={(f) => void openFile(f)}
-              />
+              <div className="project-files-area">
+                <GitPanel
+                  projectId={data.project.id}
+                  userId={user?.id ?? "demo-human"}
+                  ownerId={data.project.owner_id}
+                  agents={data.agents}
+                  tasks={data.tasks}
+                  demo={demo}
+                />
+                <FilesBrowser
+                  key={data.project.id}
+                  files={data.files}
+                  directory={fileDirectory}
+                  navigate={setFileDirectory}
+                  openFile={(f) => void openFile(f)}
+                />
+              </div>
             )}
             {tab === "tasks" && (
               <div className="kanban">
@@ -1936,7 +1976,7 @@ export default function App() {
                               setModal("connectorSetup");
                             }}
                           >
-                            {tr("配置自动回复")}
+                            {tr("连接 AI")}
                           </button>
                         )}
                         <button
@@ -2015,7 +2055,7 @@ export default function App() {
               notifications: tr("会议通知"),
               meetingInvite: tr("邀请伙伴参会"),
               agentPreferences: tr("AI 协作设置"),
-              connectorSetup: tr("配置自动回复"),
+              connectorSetup: tr("连接 AI"),
               conversations: tr("AI 对话"),
               directConversation: tr("与 AI 对话"),
             }[modal] ?? "CoNest"
@@ -2324,45 +2364,53 @@ export default function App() {
             ))}
           {modal === "help" && (
             <div className="help-content">
-              <ConnectorSetup projectId={projectId} />
-              <p>
-                {tr(
-                  "在“伙伴与 AI”里创建 AI 身份后，把专属凭证配置到你自己的 AI 工具中。",
-                )}
-              </p>
-              <h3>{tr("MCP 接入")}</h3>
-              <p>
-                {tr(
-                  "在支持远程 MCP 和 Bearer 凭证的客户端里，配置下面的服务地址。具体配置字段随客户端不同。",
-                )}
-              </p>
-              <CopyBox value={`${location.origin}/mcp`} />
-              <h3>{tr("普通 HTTP API")}</h3>
-              <p>
-                {tr(
-                  "也可以用自己的程序调用项目 API。每个 AI 只能访问凭证对应的项目，以及其所属用户获准共享的资料。",
-                )}
-              </p>
-              <pre>
-                {tr(
-                  "Authorization: Bearer <你的 AI 凭证>\nGET /api/projects/<项目 ID>\nGET /api/projects/<项目 ID>/events?after=0&wait=20",
-                )}
-              </pre>
-              <h3>{tr("持续参与会议")}</h3>
-              <p>
-                {tr(
-                  "外部客户端需要保持运行，读取新消息并触发自己的 AI。连接接口不会自动启动模型。仓库里的 examples/agent.ts 提供事件监听入口。",
-                )}
-              </p>
-              <a
-                className="button"
-                href="https://github.com/DuoChen-317/conest/blob/main/docs/agent-integration.md"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {tr("查看完整接入文档")}
-                <ArrowUpRight size={16} />
-              </a>
+              <ConnectorSetup
+                projectId={projectId}
+                agents={(data?.agents ?? [])
+                  .filter((agent: Item) => agent.owner_id === user?.id)
+                  .map((agent: Item) => ({ id: agent.id, name: agent.name }))}
+              />
+              <details>
+                <summary>{tr("开发者手动接入说明")}</summary>
+                <p>
+                  {tr(
+                    "在“伙伴与 AI”里创建 AI 身份后，把专属凭证配置到你自己的 AI 工具中。",
+                  )}
+                </p>
+                <h3>{tr("MCP 接入")}</h3>
+                <p>
+                  {tr(
+                    "在支持远程 MCP 和 Bearer 凭证的客户端里，配置下面的服务地址。具体配置字段随客户端不同。",
+                  )}
+                </p>
+                <CopyBox value={`${location.origin}/mcp`} />
+                <h3>{tr("普通 HTTP API")}</h3>
+                <p>
+                  {tr(
+                    "也可以用自己的程序调用项目 API。每个 AI 只能访问凭证对应的项目，以及其所属用户获准共享的资料。",
+                  )}
+                </p>
+                <pre>
+                  {tr(
+                    "Authorization: Bearer <你的 AI 凭证>\nGET /api/projects/<项目 ID>\nGET /api/projects/<项目 ID>/events?after=0&wait=20",
+                  )}
+                </pre>
+                <h3>{tr("持续参与会议")}</h3>
+                <p>
+                  {tr(
+                    "外部客户端需要保持运行，读取新消息并触发自己的 AI。连接接口不会自动启动模型。仓库里的 examples/agent.ts 提供事件监听入口。",
+                  )}
+                </p>
+                <a
+                  className="button"
+                  href="https://github.com/DuoChen-317/conest/blob/main/docs/agent-integration.md"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {tr("查看完整接入文档")}
+                  <ArrowUpRight size={16} />
+                </a>
+              </details>
             </div>
           )}
           {modal === "invite" && credential && (
@@ -2695,11 +2743,15 @@ export default function App() {
 function Chat({
   messages,
   agents,
+  projectId,
+  scope,
   retry,
   currentUserId,
   busy,
   ended,
 }: {
+  projectId?: string;
+  scope?: ChatScope;
   messages: Item[];
   agents: Item[];
   retry?: (requestId: string) => Promise<unknown>;
@@ -2707,76 +2759,99 @@ function Chat({
   busy?: boolean;
   ended?: boolean;
 }) {
-  const end = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    end.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
-  }, [messages.length]);
   return (
-    <div className="chat-log" role="log" aria-label={tr("讨论消息")}>
-      {messages.length ? (
-        messages.map((m) => (
-          <article className={`chat-message ${m.actor_type}`} key={m.id}>
-            <Avatar
-              index={
-                m.actor_type === "human"
-                  ? 0
-                  : [1, 3, 5][
-                      Math.max(
-                        0,
-                        agents.findIndex((a) => a.id === m.actor_id),
-                      ) % 3
-                    ]
-              }
-              small
-            />
-            <div>
-              <header>
-                <b>{m.actor_name}</b>
-                {m.actor_type === "agent" && (
-                  <span className="ai-label">
-                    AI ·{" "}
-                    {agents.find((a) => a.id === m.actor_id)?.owner_name ??
-                      tr("伙伴")}
-                  </span>
-                )}
-                <time>{time(m.created_at)}</time>
-              </header>
-              <p>{m.body}</p>
-              {m.ai_requests?.length > 0 && (
-                <div className="direct-message-state">
-                  {m.ai_requests.map((r: Item) => (
-                    <span key={r.id}>
-                      @
-                      {agents.find((a) => a.id === r.agentId)?.name ??
-                        tr("伙伴")}{" "}
-                      ·{" "}
-                      {ended && r.status !== "replied"
-                        ? tr("会议已结束，未回复")
-                        : tr(requestLabels[r.status])}
-                      {r.status === "failed" &&
-                        !ended &&
-                        m.actor_id === currentUserId &&
-                        retry && (
-                          <button
-                            className="text-button"
-                            disabled={busy}
-                            onClick={() => void retry(r.id)}
-                          >
-                            {tr("重试")}
-                          </button>
-                        )}
-                    </span>
-                  ))}
+    <ChatTimeline
+      viewerId={currentUserId}
+      projectId={projectId}
+      scope={scope}
+      messages={messages}
+      className="chat-log"
+      label={tr("讨论消息")}
+    >
+      {(items, update) => (
+        <>
+          {items.length ? (
+            items.map((m) => (
+              <article className={`chat-message ${m.actor_type}`} key={m.id}>
+                <Avatar
+                  index={
+                    m.actor_type === "human"
+                      ? 0
+                      : [1, 3, 5][
+                          Math.max(
+                            0,
+                            agents.findIndex((a) => a.id === m.actor_id),
+                          ) % 3
+                        ]
+                  }
+                  small
+                />
+                <div>
+                  <header>
+                    <b>{m.actor_name}</b>
+                    {m.actor_type === "agent" && (
+                      <span className="ai-label">
+                        AI ·{" "}
+                        {agents.find((a) => a.id === m.actor_id)?.owner_name ??
+                          tr("伙伴")}
+                      </span>
+                    )}
+                    <time>{time(m.created_at)}</time>
+                    <MessageActions
+                      projectId={projectId}
+                      scope={scope}
+                      message={m}
+                      update={update}
+                    />
+                  </header>
+                  <p>
+                    {m.redacted_at
+                      ? tr(
+                          m.redaction_reason === "expired"
+                            ? "消息已按保留期限清除"
+                            : "消息已撤回",
+                        )
+                      : m.body}
+                  </p>
+                  {m.ai_requests?.length > 0 && (
+                    <div className="direct-message-state">
+                      {m.ai_requests.map((r: Item) => (
+                        <span key={r.id}>
+                          @
+                          {agents.find((a) => a.id === r.agentId)?.name ??
+                            tr("伙伴")}{" "}
+                          ·{" "}
+                          {ended && r.status !== "replied"
+                            ? tr("会议已结束，未回复")
+                            : tr(requestLabels[r.status])}
+                          {r.status === "failed" &&
+                            !ended &&
+                            !m.redacted_at &&
+                            m.actor_id === currentUserId &&
+                            retry && (
+                              <button
+                                className="text-button"
+                                disabled={busy}
+                                onClick={() => void retry(r.id)}
+                              >
+                                {tr("重试")}
+                              </button>
+                            )}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </article>
-        ))
-      ) : (
-        <p className="chat-empty">{tr("议题已经准备好，分享第一个想法吧。")}</p>
+              </article>
+            ))
+          ) : (
+            <p className="chat-empty">
+              {tr("议题已经准备好，分享第一个想法吧。")}
+            </p>
+          )}
+        </>
       )}
-      <div ref={end} />
-    </div>
+    </ChatTimeline>
   );
 }
 function Credential({ credential }: { credential: Item }) {
@@ -2786,45 +2861,48 @@ function Credential({ credential }: { credential: Item }) {
         <CheckCircle size={22} />
         <div>
           <b>{tr("{name} 的身份已创建", { name: credential.name })}</b>
-          <p>{tr("凭证仅展示这一次。请保存到你的客户端配置中。")}</p>
+          <p>{tr("复制接入提示词，由客户端完成连接。")}</p>
         </div>
       </div>
       <ConnectorSetup
         projectId={credential.projectId}
         agentId={credential.id}
         agentName={credential.name}
-        token={credential.token}
       />
-      <label>
-        {tr("AI 专属凭证")}
-        <CopyBox value={credential.token} />
-      </label>
-      <label>
-        {tr("远程 MCP 配置示例")}
-        <CopyBox
-          value={JSON.stringify(
-            {
-              mcpServers: {
-                conest: {
-                  url: `${location.origin}/mcp`,
-                  headers: { Authorization: `Bearer ${credential.token}` },
+      <details>
+        <summary>{tr("原始凭证与手动配置（可选）")}</summary>
+        <p>{tr("凭证仅展示这一次。请保存到你的客户端配置中。")}</p>
+        <label>
+          {tr("AI 专属凭证")}
+          <CopyBox value={credential.token} />
+        </label>
+        <label>
+          {tr("远程 MCP 配置示例")}
+          <CopyBox
+            value={JSON.stringify(
+              {
+                mcpServers: {
+                  conest: {
+                    url: `${location.origin}/mcp`,
+                    headers: { Authorization: `Bearer ${credential.token}` },
+                  },
                 },
               },
-            },
-            null,
-            2,
+              null,
+              2,
+            )}
+          />
+        </label>
+        <p className="muted">
+          {tr(
+            "这是通用示例，客户端的配置字段可能不同。保持客户端运行，AI 才能持续参与会议。",
           )}
-        />
-      </label>
-      <p className="muted">
-        {tr(
-          "这是通用示例，客户端的配置字段可能不同。保持客户端运行，AI 才能持续参与会议。",
-        )}
-      </p>
-      <label>
-        {tr("项目 ID")}
-        <CopyBox value={credential.projectId} />
-      </label>
+        </p>
+        <label>
+          {tr("项目 ID")}
+          <CopyBox value={credential.projectId} />
+        </label>
+      </details>
     </div>
   );
 }

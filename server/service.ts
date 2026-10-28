@@ -3,6 +3,8 @@ import { z } from "zod";
 import { Store, id, now, hash, secret, type Row } from "./store.ts";
 import { Collaboration } from "./collaboration.ts";
 import { Conversations } from "./conversations.ts";
+import { History } from "./history.ts";
+import { GitWorkflow } from "./git.ts";
 
 export type Actor = {
   id: string;
@@ -10,6 +12,7 @@ export type Actor = {
   name: string;
   type: "human" | "agent";
   projectId?: string;
+  credentialId?: string;
 };
 export class ApiError extends Error {
   constructor(
@@ -31,10 +34,22 @@ export class Service {
   events = new EventEmitter();
   collaboration = new Collaboration(this);
   conversations = new Conversations(this);
+  history = new History(this);
+  git = new GitWorkflow(this);
   constructor(public store: Store) {
     this.events.setMaxListeners(0);
   }
   project(actor: Actor, projectId: string) {
+    if (actor.credentialId)
+      requireThat(
+        this.store.one(
+          "SELECT 1 FROM agent_credentials WHERE id=? AND agent_id=?",
+          actor.credentialId,
+          actor.id,
+        ),
+        401,
+        "Invalid AI credential",
+      );
     if (actor.type === "agent")
       requireThat(
         this.store.one(
@@ -251,10 +266,15 @@ export class Service {
     this.project(actor, projectId);
     if (actor.type === "agent")
       this.setPresence(actor, projectId, { room: "office" });
-    return this.store.all(
-      "SELECT * FROM (SELECT * FROM office_messages WHERE project_id=? AND owner_id=? ORDER BY rowid DESC LIMIT 200) ORDER BY created_at",
+    return this.history.decorateRows(
+      actor,
       projectId,
-      actor.userId,
+      { kind: "office" },
+      this.store.all(
+        "SELECT * FROM (SELECT * FROM office_messages WHERE project_id=? AND owner_id=? ORDER BY rowid DESC LIMIT 200) ORDER BY created_at",
+        projectId,
+        actor.userId,
+      ),
     );
   }
   sendOfficeMessage(actor: Actor, projectId: string, input: unknown) {
@@ -423,17 +443,22 @@ export class Service {
       this.meeting(actor, projectId, meetingId).status !== "ended"
     )
       this.setPresence(actor, projectId, { room: "meeting", meetingId });
-    return this.store
-      .all(
-        `SELECT m.*,(SELECT json_group_array(agent_id) FROM message_targets t WHERE t.message_id=m.id) recipient_agent_ids,(SELECT json_group_array(json_object('id',r.id,'agentId',r.agent_id,'status',r.status)) FROM agent_requests r WHERE r.message_id=m.id) ai_requests FROM (SELECT * FROM messages WHERE project_id=? AND meeting_id IS ? ORDER BY rowid DESC LIMIT 200) m ORDER BY created_at`,
-        projectId,
-        meetingId ?? null,
-      )
-      .map((m): Row => ({
-        ...m,
-        recipient_agent_ids: JSON.parse(m.recipient_agent_ids),
-        ai_requests: JSON.parse(m.ai_requests),
-      }));
+    return this.history.decorateRows(
+      actor,
+      projectId,
+      meetingId ? { kind: "meeting", meetingId } : { kind: "lounge" },
+      this.store
+        .all(
+          `SELECT m.*,(SELECT json_group_array(agent_id) FROM message_targets t WHERE t.message_id=m.id) recipient_agent_ids,(SELECT json_group_array(json_object('id',r.id,'agentId',r.agent_id,'status',r.status)) FROM agent_requests r WHERE r.message_id=m.id) ai_requests FROM (SELECT * FROM messages WHERE project_id=? AND meeting_id IS ? ORDER BY rowid DESC LIMIT 200) m ORDER BY created_at`,
+          projectId,
+          meetingId ?? null,
+        )
+        .map((m): Row => ({
+          ...m,
+          recipient_agent_ids: JSON.parse(m.recipient_agent_ids),
+          ai_requests: JSON.parse(m.ai_requests),
+        })),
+    );
   }
   sendMessage(actor: Actor, projectId: string, input: unknown) {
     this.project(actor, projectId);

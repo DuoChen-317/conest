@@ -11,7 +11,6 @@ const setup: ConnectorSetup = {
   projectId: "project-a",
   agentId: "agent-a",
   agentName: "My AI",
-  token: "cn_example_only",
   pollSeconds: 10,
   scope: "meeting",
   instructions: 'Keep "quotes", 中文 and\nline breaks literal.',
@@ -23,7 +22,9 @@ test("both prompt languages carry identical usable local settings and queue prot
   for (const locale of ["en", "zh-CN"] as const) {
     const prompt = buildSetupPrompt(setup, locale);
     const env = configuration(prompt);
-    assert.equal(env.CONEST_TOKEN, setup.token);
+    assert.equal(env.CONEST_TOKEN, undefined);
+    assert.equal(env.CONEST_TOKEN_FILE, "<ABSOLUTE_TOKEN_FILE>");
+    assert.ok(!prompt.includes("cn_example_only"));
     assert.equal(env.CONEST_REPLY_INSTRUCTIONS, setup.instructions);
     assert.deepEqual(
       connectorSettings(
@@ -52,11 +53,11 @@ test("both prompt languages carry identical usable local settings and queue prot
 test("template uses explicit placeholders and rejects unsupported settings", () => {
   const env = configuration(
     buildSetupPrompt(
-      { ...setup, token: undefined, agentId: undefined, projectId: undefined },
+      { ...setup, agentId: undefined, projectId: undefined },
       "en",
     ),
   );
-  assert.equal(env.CONEST_TOKEN, "<CONEST_AI_TOKEN>");
+  assert.equal(env.CONEST_TOKEN_FILE, "<ABSOLUTE_TOKEN_FILE>");
   assert.equal(env.CONEST_AGENT_ID, "<AGENT_ID_FROM_API_ME>");
   assert.equal(env.CONEST_PROJECT_ID, "<PROJECT_ID_FROM_API_ME>");
   for (const origin of [
@@ -110,7 +111,7 @@ test("connector filters scope before claiming and carries reply preferences to t
   );
   await runConnector({
     url: setup.origin,
-    token: setup.token!,
+    token: "cn_example_only",
     scope: "meeting",
     signal: controller.signal,
     agentId: "agent-a",
@@ -118,7 +119,7 @@ test("connector filters scope before claiming and carries reply preferences to t
     replyInstructions: "Be concise",
     adapter: async (context) => {
       assert.equal(context.replyInstructions, "Be concise");
-      assert.ok(!JSON.stringify(context).includes(setup.token!));
+      assert.ok(!JSON.stringify(context).includes("cn_example_only"));
       return "Answer";
     },
   });
@@ -138,7 +139,7 @@ test("empty queues only poll at the configured interval and never call the model
   });
   const running = runConnector({
     url: setup.origin,
-    token: setup.token!,
+    token: "cn_example_only",
     pollMilliseconds: 10000,
     signal: controller.signal,
     adapter: async () => {
@@ -169,7 +170,7 @@ test("identity mismatch and revoked credentials stop the local connector", async
   });
   const options = {
     url: setup.origin,
-    token: setup.token!,
+    token: "cn_example_only",
     signal: new AbortController().signal,
     adapter: async () => "Never called",
   };

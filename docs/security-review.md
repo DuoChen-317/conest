@@ -46,6 +46,8 @@
 ## 仍需理解的限制
 
 - AI 凭证代表其主人在指定项目内的 AI 身份，能读取主人的私人办公室和私人文件，目前没有按工具细分的只读凭证。凭证应只交给主人信任的客户端。
+- 2026-10-27 新增的[本地工作目录 MCP](local-workspace.md)只限制其自身的本机文件工具，按私人/固定任务会话区分读写授权，不改变远程 AI 凭证的项目权限，也不限制整个客户端的原生终端能力。公共问答连接器不挂载本地目录。生成的接入提示词改为引用本地凭证文件，不再包含凭证明文。
+- 统一接入使用[十分钟配对码和主人确认](connection-setup.md)。长期凭证在客户端生成，服务端只保存散列。各连接拥有独立凭证；取消一个连接不替换其他连接的凭证，并对正在等待的读取重新检查。确认意味着授予该 AI 原有的项目访问权限，并非只读授权。
 - 内置问答连接器不提供工具，只发送当前问题的受限上下文和共享文件。自定义本地处理程序不是沙箱；若自行接入带工具、文件或私人记忆的代理，需要在运行环境限制它的权限，提示词不能提供隔离保证。
 - 撤回授权阻止后续服务端读取和回复，无法收回已下载的数据，也不会中止已经发给模型服务的请求。
 - 服务端运营者能访问 SQLite，没有端到端加密。公开部署仍需配置 HTTPS、正确的 PUBLIC_ORIGIN / 安全 Cookie 和可信反向代理；当前本地预览不能证明生产部署配置正确。
@@ -57,3 +59,15 @@
 - `npm audit`：0 个已知漏洞。
 
 构建和浏览器撤权操作的最终结果同时记录在仓库的 `design-qa.md`。
+
+## 聊天记录扩展（2026-10-28）
+
+新增历史分页、自动摘录、原文定位和导出，均复用具体会话的服务端权限，不能用历史入口读取其他办公室或同主人其他 AI 的单独对话。个人分组、归档和可恢复移除不改变成员权限；个人移除不阻止其他成员或 AI 读取原文。只有本人能撤回自己及自己 AI 的发言，只有会话管理者能配置正文保留期限。
+
+撤回或到期会清空正文、清理事件副本及摘录缓存，并使会话内正在处理的回复租约失效。已被客户端读取、引用、模型接收或导出的内容不能收回。SQLite 快照包含私人内容与鉴权数据，只保存在运营者可读的目录，不提供整库下载 API；旧快照不随正文撤回改写，恢复旧库可能恢复旧凭证和正文。详见[记录、清理与恢复边界](chat-history.md)。
+
+新增回归检查覆盖超过 200 条分页、稳定游标、跨用户及同主人 AI 隔离、原文权限、撤回和租约、个人隐藏、保留策略及在线备份恢复。完整测试及界面验收记录见 `design-qa.md`。
+
+## Git runner (2026-10-28)
+
+Git is executed only by a separately owner-approved local device, never the web server or public question connector. Browser enqueue and private results are owner-only; remote AI tokens need an additional machine credential to use local endpoints. Typed actions, fixed workspace/branch/origin, explicit path staging, snapshot checks, separate publish grant, task-state rechecks, common-repository locks, no hooks/external diff/signing, and no token inheritance are covered by `tests/git.test.ts`. Real runner/stdio MCP and temporary bare-remote operations are exercised. Timed-out claims become uncertain and are never replayed; receipt retries are idempotent. Preview data reaches the owner-only server DB/backups. Worktrees and path filtering are not OS isolation or a full secret scanner. Publication includes branch history, and revocation cannot undo an already-started Git operation or push. See [full Git boundaries](git-workflow.md).

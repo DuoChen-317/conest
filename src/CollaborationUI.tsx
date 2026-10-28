@@ -9,6 +9,8 @@ import { useState, useEffect, useRef } from "react";
 import { tr, getLocale, localizeError } from "./i18n";
 import { api, time, type Item } from "./api";
 import ChatTextarea from "./ChatTextarea";
+import ChatHistory from "./ChatHistory";
+import ChatTimeline, { MessageActions } from "./ChatTimeline";
 
 const invitationLabels: Record<string, string> = {
   pending: "待回应",
@@ -464,41 +466,78 @@ export function DirectConversation({
           {localizeError(error)}
         </p>
       )}
-      <div className="direct-log" role="log" aria-label={tr("AI 对话记录")}>
-        {!loaded ? (
-          <p className="muted">{tr("正在读取对话…")}</p>
-        ) : !messages.length ? (
-          <p className="chat-empty">
-            {tr("向这个 AI 提一个关于项目的问题吧。")}
-          </p>
-        ) : (
-          messages.map((m) => (
-            <article className={`direct-message ${m.actor_type}`} key={m.id}>
-              <header>
-                <strong>{m.actor_name}</strong>
-                <time dateTime={m.created_at}>{time(m.created_at)}</time>
-              </header>
-              <p>{m.body}</p>
-              {m.request_status && (
-                <div className="direct-message-state">
-                  <span role="status">
-                    {tr(requestLabels[m.request_status])}
-                  </span>
-                  {m.request_status === "failed" && canSend && (
-                    <button
-                      className="text-button"
-                      disabled={busy}
-                      onClick={() => void retry(m.request_id)}
-                    >
-                      {tr("重试")}
-                    </button>
+      <ChatHistory
+        projectId={projectId}
+        scope={{ kind: "direct", conversationId: conversation.id }}
+      />
+      <ChatTimeline
+        viewerId={userId}
+        projectId={projectId}
+        scope={{ kind: "direct", conversationId: conversation.id }}
+        messages={messages}
+        className="direct-log"
+        label={tr("AI 对话记录")}
+      >
+        {(items, update) => (
+          <>
+            {!loaded ? (
+              <p className="muted">{tr("正在读取对话…")}</p>
+            ) : !items.length ? (
+              <p className="chat-empty">
+                {tr("向这个 AI 提一个关于项目的问题吧。")}
+              </p>
+            ) : (
+              items.map((m) => (
+                <article
+                  className={`direct-message ${m.actor_type}`}
+                  key={m.id}
+                >
+                  <header>
+                    <strong>{m.actor_name}</strong>
+                    <time dateTime={m.created_at}>{time(m.created_at)}</time>
+                    <MessageActions
+                      projectId={projectId}
+                      scope={{
+                        kind: "direct",
+                        conversationId: conversation.id,
+                      }}
+                      message={m}
+                      update={update}
+                    />
+                  </header>
+                  <p>
+                    {m.redacted_at
+                      ? tr(
+                          m.redaction_reason === "expired"
+                            ? "消息已按保留期限清除"
+                            : "消息已撤回",
+                        )
+                      : m.body}
+                  </p>
+                  {m.request_status && (
+                    <div className="direct-message-state">
+                      <span role="status">
+                        {tr(requestLabels[m.request_status])}
+                      </span>
+                      {m.request_status === "failed" &&
+                        canSend &&
+                        !m.redacted_at && (
+                          <button
+                            className="text-button"
+                            disabled={busy}
+                            onClick={() => void retry(m.request_id)}
+                          >
+                            {tr("重试")}
+                          </button>
+                        )}
+                    </div>
                   )}
-                </div>
-              )}
-            </article>
-          ))
+                </article>
+              ))
+            )}
+          </>
         )}
-      </div>
+      </ChatTimeline>
       {!canSend && (
         <p className="muted">
           {sender

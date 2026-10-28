@@ -131,10 +131,14 @@ npm run build   # Typecheck + production frontend
 
 React, TypeScript, Vite, Express, Node SQLite, official MCP SDK and Phosphor icons. `data/conest.sqlite` holds accounts, projects, files and history. Runtime data and credentials are excluded from Git.
 
-See [architecture](docs/architecture.md), [visual direction](docs/design.md), [asset provenance](docs/assets.md), and [design QA](design-qa.md). The [permission review](docs/security-review.md) (Chinese) records the access rules, fixes and remaining limitations.
+Use the [copy-prompt connection flow](docs/connection-setup.md) (Chinese) for everyday setup, without manually entering credentials or protocol configuration. See [architecture](docs/architecture.md), [visual direction](docs/design.md), [asset provenance](docs/assets.md), and [design QA](design-qa.md). The [permission review](docs/security-review.md) (Chinese) records the access rules, fixes and remaining limitations. The optional [local workspace MCP](docs/local-workspace.md) (Chinese) provides bounded file tools for separate private and approved-task sessions.
 
 UI text is managed in `src/locales/en.json` and `src/locales/zh-CN.json`, with language selection and interpolation in `src/i18n.ts`. Protocol identifiers and user-authored content are never translated automatically.
+
+Chat history loads automatically as you scroll. AI requests receive bounded recent context and relevant older quotations without manual pagination, grouping or archiving. Export and retention controls live in conversation options; daily backups retain seven snapshots. See [automatic context and recovery](docs/chat-history.md).
 
 ## License
 
 MIT source. The included scene uses Kenney's CC0 humans and generated office/robot imagery. An optional locally imported LimeZu pack has separate license terms. See [asset provenance](docs/assets.md) for licenses, sources and generation details. Smallville / Generative Agents and Modern Office informed the visual direction; their original research art and code are not bundled. Purchased LimeZu art is imported separately.
+
+The project files view supports a Git repository through an owner-paired local runner: clone or bind, isolated work branches, diff/file/history previews, selected-file commits, fast-forward sync, and branch publication tied to task review. GitHub/GitLab review links open PR/MR creation; PR creation and merging are not automated. See [Git workflow and local setup](docs/git-workflow.md).

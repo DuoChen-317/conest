@@ -14,7 +14,9 @@
     "test": "tsx --test tests/*.test.ts",
     "check": "tsc --noEmit",
     "agent": "tsx examples/agent.ts",
-    "connector": "tsx examples/connector.ts"
+    "connector": "tsx examples/connector.ts",
+    "workspace": "tsx examples/workspace.ts",
+    "git": "tsx examples/git.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

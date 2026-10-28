@@ -194,7 +194,7 @@
   gap: 12px;
   margin-bottom: 6px;
 }
-.direct-message p {
+.direct-message > p {
   white-space: pre-wrap;
 }
 .direct-message time {
@@ -1454,7 +1454,7 @@ pre {
   color: #a2aba3;
   margin-left: auto;
 }
-.chat-message p {
+.chat-message > div > p {
   font-size: 12px;
   line-height: 1.9;
   white-space: pre-wrap;
@@ -1462,7 +1462,7 @@ pre {
   padding: 10px 12px;
   border-radius: 0 8px 8px;
 }
-.chat-message.agent p {
+.chat-message.agent > div > p {
   background: #f0f3f8;
 }
 .ai-label {
@@ -1997,6 +1997,61 @@ pre {
   align-items: flex-start;
   gap: 10px;
   margin-bottom: 18px;
+}
+.connection-steps {
+  margin: 0 0 20px;
+  padding-left: 23px;
+}
+.connection-steps li {
+  padding: 4px 0 4px 4px;
+}
+.connection-hint {
+  margin: 12px 0 20px;
+  color: #59664f;
+  font-size: 12px;
+}
+.connection-state {
+  margin: 18px 0;
+  padding: 14px;
+  border-left: 3px solid #658653;
+  background: #fff;
+}
+.connection-state strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.connection-state p {
+  margin: 8px 0 0;
+}
+.connection-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.connection-actions button {
+  min-height: 44px;
+}
+.connection-error {
+  color: #9d332e;
+  overflow-wrap: anywhere;
+}
+.connection-simple > details {
+  margin-top: 16px;
+}
+.connection-simple summary {
+  cursor: pointer;
+  padding: 10px 0;
+  min-height: 44px;
+}
+.connection-simple > details .copy-box pre {
+  max-height: 240px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.connection-advanced > .connector-setup {
+  margin-top: 14px;
 }
 .connector-heading > svg {
   flex-shrink: 0;
@@ -2866,7 +2921,7 @@ pre {
     padding: 15px;
     max-height: 400px;
   }
-  .chat-message p {
+  .chat-message > div > p {
     font-size: 11px;
   }
   .conversation-tools {
@@ -3689,7 +3744,7 @@ body {
 .office-conversation .chat-message {
   gap: 8px;
 }
-.office-conversation .chat-message p {
+.office-conversation .chat-message > div > p {
   font-size: 12px;
 }
 .office-conversation .message-form {
@@ -4403,4 +4458,503 @@ body {
     height: 490px;
     min-height: 0;
   }
+}
+
+/* Chat stays in one timeline; infrequent controls live in a compact menu. */
+.conversation-options {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+.conversation-options > details > summary,
+.message-options > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 36px;
+  min-height: 32px;
+  color: #60748a;
+  border-radius: 5px;
+}
+.conversation-options summary::-webkit-details-marker,
+.message-options summary::-webkit-details-marker {
+  display: none;
+}
+.conversation-options > details > summary:hover,
+.message-options > summary:hover {
+  background: #edf2f6;
+}
+.conversation-options-panel {
+  position: absolute;
+  z-index: 40;
+  right: 12px;
+  top: 32px;
+  width: min(300px, calc(100vw - 64px));
+  max-height: min(380px, 65vh);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 8px 24px #23394920;
+  font-size: 12px;
+}
+.conversation-options-panel > strong {
+  display: block;
+  margin-bottom: 10px;
+}
+.conversation-options-panel a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--green);
+}
+.conversation-options-panel details {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+.conversation-options-panel details > summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+.conversation-options-panel form {
+  display: grid;
+  gap: 10px;
+  padding: 10px 0;
+}
+.conversation-options-panel label {
+  margin: 0;
+  font-size: 12px;
+}
+.conversation-options-panel input {
+  min-height: 40px;
+}
+.conversation-options-panel p {
+  margin: 6px 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #526574;
+}
+.removed-messages {
+  max-height: 220px;
+  overflow: auto;
+}
+.removed-messages article {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.removed-messages time {
+  display: block;
+  font-size: 11px;
+  color: #62737b;
+}
+.timeline-status {
+  margin: 0 0 10px;
+  text-align: center;
+  color: #62737b;
+  font-size: 12px;
+}
+.message-options {
+  position: relative;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.message-options-panel {
+  position: absolute;
+  z-index: 35;
+  right: 0;
+  top: 30px;
+  width: 230px;
+  max-width: calc(100vw - 80px);
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: 0 5px 20px #23394918;
+  background: white;
+}
+.message-options-panel p {
+  white-space: normal;
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.message-options-panel button + button {
+  margin-left: 8px;
+}
+.conversation-options summary:focus-visible,
+.message-options summary:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .conversation-options > details > summary,
+  .message-options > summary {
+    width: 44px;
+    min-height: 44px;
+  }
+  .conversation-options-panel {
+    top: 44px;
+  }
+}
+.message-withdraw-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(360px, calc(100vw - 40px));
+  height: fit-content;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 22px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 14px 60px #23394940;
+}
+.message-withdraw-dialog::backdrop {
+  background: #23394960;
+}
+.message-withdraw-dialog p {
+  white-space: normal;
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.message-withdraw-dialog button + button {
+  margin-left: 10px;
+}
+/* Git stays alongside shared project material; local results remain owner-only. */
+.project-files-area {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.git-panel {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 0;
+  color: var(--ink);
+}
+.git-heading,
+.git-heading > div,
+.git-workspace-bar,
+.git-actions,
+.git-actions > span,
+.git-preview header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.git-heading {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.git-heading h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.git-remote {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.git-panel p {
+  font-size: 14px;
+  line-height: 1.65;
+  margin-block: 12px;
+}
+.git-panel button,
+.git-submit-dialog button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--paper);
+  color: inherit;
+}
+.git-panel button:not(:disabled):hover,
+.git-submit-dialog button:hover {
+  background: var(--bg, #f1f4ee);
+}
+.git-panel button:active {
+  opacity: 0.75;
+}
+.git-panel label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.git-panel input:not([type="checkbox"]),
+.git-panel select,
+.git-panel textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  font-size: 14px;
+}
+.git-form-row {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 12px;
+}
+.git-form-row > label {
+  flex: 1 1 170px;
+  min-width: 0;
+}
+.git-form-row > label:has(input[name="remote"]) {
+  flex-grow: 3;
+}
+.git-setup {
+  border-block: 1px solid var(--border);
+  margin-block: 16px;
+  padding-block: 8px 16px;
+}
+.git-panel summary {
+  min-height: 44px;
+  padding-block: 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.git-permissions {
+  display: flex;
+  gap: 8px 24px;
+  flex-wrap: wrap;
+  margin-block: 12px;
+}
+.git-panel .git-permissions label {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 8px;
+}
+.git-panel input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--green);
+  flex-shrink: 0;
+}
+.git-prompt .copy-box pre {
+  max-height: 220px;
+  overflow: auto;
+  font-size: 12px;
+}
+.git-workspace-bar {
+  padding-block: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.git-workspace-bar > label {
+  flex: 1 1 220px;
+}
+.git-workspace-bar > span {
+  font-size: 13px;
+}
+.git-online,
+.git-notice {
+  color: var(--green);
+}
+.git-approval {
+  padding: 16px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.git-approval code {
+  font-size: 20px;
+  letter-spacing: 0.1em;
+}
+.git-actions {
+  padding-block: 16px;
+}
+.git-actions > span {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.git-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.git-view-tabs button[aria-pressed="true"] {
+  background: var(--bg, #edf0e9);
+  font-weight: 650;
+}
+.git-file-list {
+  padding: 0;
+  list-style: none;
+  max-height: 360px;
+  overflow-y: auto;
+  margin-block: 12px;
+}
+.git-file-list li {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+.git-file-list li > label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 8px;
+}
+.git-file-list li > button {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  justify-content: start;
+  border: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+}
+.git-commit {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.git-commit button {
+  justify-self: start;
+}
+.git-log {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  max-height: 360px;
+  overflow: auto;
+}
+.git-log li {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.git-log small,
+.git-reviews small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.git-preview {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 16px;
+  min-width: 0;
+  overflow: hidden;
+}
+.git-preview header {
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.git-preview header strong {
+  flex: 1;
+  min-width: 0;
+}
+.git-preview pre {
+  max-height: 420px;
+  overflow: auto;
+  background: var(--bg, #f3f5ef);
+  margin: 0;
+  padding: 16px;
+  font: 13px/1.65 var(--font-mono, monospace);
+  tab-size: 2;
+}
+.git-reviews {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+}
+.git-reviews article {
+  padding: 12px 0;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.git-reviews a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: underline;
+}
+.git-error {
+  color: var(--danger, #903e32);
+  padding: 12px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+}
+.git-submit-dialog {
+  margin: auto;
+  max-width: min(480px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--paper);
+}
+.git-submit-dialog::backdrop {
+  background: rgb(20 30 20 / 0.5);
+}
+.git-submit-dialog p {
+  font-size: 14px;
+  line-height: 1.7;
+  margin-block: 16px;
+}
+.git-submit-dialog code {
+  overflow-wrap: anywhere;
+}
+.git-submit-dialog > div {
+  display: flex;
+  justify-content: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+@media (max-width: 600px) {
+  .git-panel {
+    padding: 16px;
+  }
+  .git-heading > div {
+    gap: 8px;
+  }
+  .git-remote {
+    flex-basis: 100%;
+  }
+  .git-actions > button {
+    flex: 1 1 120px;
+  }
+  .git-workspace-bar > label {
+    flex-basis: 100%;
+  }
+}
+
+.git-panel label {
+  margin-bottom: 0;
 }
