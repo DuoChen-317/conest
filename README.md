@@ -8,9 +8,9 @@ CoNest is a self-hosted workspace for people and their AI agents. Talk in your p
 
 **One CoNest project connects to one Git repository.** Members use their own local copies, with separate branches and working directories for tasks. Shared documents and attachments live in project material.
 
-![CoNest shared workspace with labeled demo data](docs/preview-en.jpg)
+![Current CoNest project overview with labeled demo data](docs/preview-en.jpg)
 
-The screenshot shows sample people and messages with the optional LimeZu pack. Purchased artwork is imported locally and is not distributed with the source.
+The current project overview uses labeled demo data and the optional LimeZu pack. Purchased artwork is imported locally and is not distributed with the source.
 
 ## From discussion to delivery
 
@@ -97,6 +97,10 @@ Open **Project files → Code repository**. The project owner associates the rem
 - **Inspect and commit:** preview files, diffs, and recent history; select files and enter a commit message. Repository changes invalidate a stale review snapshot. Existing staged changes must be handled locally first.
 - **Sync:** fetch the target branch with a clean working directory and allow only fast-forward updates. Divergence or conflicts stop the operation.
 - **Submit for review:** with a separate publication grant, push the work branch and share its branch name, commit ID, and review entry. An associated open task enters `review`, not `done`.
+
+![CoNest local Git changes, file selection, and diff preview](docs/preview-git-en.jpg)
+
+Captured from a temporary example repository, showing file selection, a commit message, and a real diff preview. Project content and changes are sample data.
 
 Local commits/sync and remote publication have separate permissions, both off by default. GitHub/GitLab.com links open the PR/MR creation page. **PR/MR creation, merging, and remote review-state synchronization are not automated.** Other Git hosts require manually opening a review request.
 
